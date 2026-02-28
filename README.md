@@ -1,59 +1,183 @@
-<p align="center"><a href="https://laravel.com" target="_blank"><img src="https://raw.githubusercontent.com/laravel/art/master/logo-lockup/5%20SVG/2%20CMYK/1%20Full%20Color/laravel-logolockup-cmyk-red.svg" width="400" alt="Laravel Logo"></a></p>
+# Market Tracker
 
-<p align="center">
-<a href="https://github.com/laravel/framework/actions"><img src="https://github.com/laravel/framework/workflows/tests/badge.svg" alt="Build Status"></a>
-<a href="https://packagist.org/packages/laravel/framework"><img src="https://img.shields.io/packagist/dt/laravel/framework" alt="Total Downloads"></a>
-<a href="https://packagist.org/packages/laravel/framework"><img src="https://img.shields.io/packagist/v/laravel/framework" alt="Latest Stable Version"></a>
-<a href="https://packagist.org/packages/laravel/framework"><img src="https://img.shields.io/packagist/l/laravel/framework" alt="License"></a>
-</p>
+Sistema web para monitorar preços de produtos por supermercado, importar notas fiscais (PDF), comparar melhores ofertas e montar listas de compra com estimativa de menor custo.
 
-## About Laravel
+A aplicação foi construída com Laravel + Filament e foco em uso administrativo rápido por modal.
 
-Laravel is a web application framework with expressive, elegant syntax. We believe development must be an enjoyable and creative experience to be truly fulfilling. Laravel takes the pain out of development by easing common tasks used in many web projects, such as:
+## Principais funcionalidades
 
-- [Simple, fast routing engine](https://laravel.com/docs/routing).
-- [Powerful dependency injection container](https://laravel.com/docs/container).
-- Multiple back-ends for [session](https://laravel.com/docs/session) and [cache](https://laravel.com/docs/cache) storage.
-- Expressive, intuitive [database ORM](https://laravel.com/docs/eloquent).
-- Database agnostic [schema migrations](https://laravel.com/docs/migrations).
-- [Robust background job processing](https://laravel.com/docs/queues).
-- [Real-time event broadcasting](https://laravel.com/docs/broadcasting).
+- Cadastro e gestão de:
+  - Produtos
+  - Supermercados (com endereço e coordenadas)
+  - Notas fiscais e itens
+  - Listas de compra
+- Importação de nota fiscal via PDF (parser NFC-e)
+- Histórico de preços por produto e por supermercado
+- Dashboard com indicadores e gráficos relevantes:
+  - KPIs gerais
+  - Evolução de cesta fixa de produtos
+  - Gasto por supermercado
+  - Preço médio por categoria
+  - Tabela de oportunidades de preço
+- Mapa de supermercados com ação para abrir o resource do mercado
+- Fluxo CRUD orientado a modais (adicionar/editar/excluir)
 
-Laravel is accessible, powerful, and provides tools required for large, robust applications.
+## Stack
 
-## Learning Laravel
+- PHP 8.2+
+- Laravel 12
+- Filament 5
+- Livewire + Alpine.js
+- Vite + Tailwind CSS
+- Banco: SQLite (padrão) ou MySQL/PostgreSQL
+- Parser de PDF: `smalot/pdfparser`
 
-Laravel has the most extensive and thorough [documentation](https://laravel.com/docs) and video tutorial library of all modern web application frameworks, making it a breeze to get started with the framework. You can also check out [Laravel Learn](https://laravel.com/learn), where you will be guided through building a modern Laravel application.
+## Requisitos
 
-If you don't feel like reading, [Laracasts](https://laracasts.com) can help. Laracasts contains thousands of video tutorials on a range of topics including Laravel, modern PHP, unit testing, and JavaScript. Boost your skills by digging into our comprehensive video library.
+- PHP 8.2+
+- Composer
+- Node.js 18+ e npm
+- Extensões PHP comuns do Laravel (pdo, mbstring, openssl, tokenizer, etc.)
 
-## Laravel Sponsors
+## Instalação rápida
 
-We would like to extend our thanks to the following sponsors for funding Laravel development. If you are interested in becoming a sponsor, please visit the [Laravel Partners program](https://partners.laravel.com).
+1. Clonar o projeto
 
-### Premium Partners
+```bash
+git clone <repo-url>
+cd market-tracker
+```
 
-- **[Vehikl](https://vehikl.com)**
-- **[Tighten Co.](https://tighten.co)**
-- **[Kirschbaum Development Group](https://kirschbaumdevelopment.com)**
-- **[64 Robots](https://64robots.com)**
-- **[Curotec](https://www.curotec.com/services/technologies/laravel)**
-- **[DevSquad](https://devsquad.com/hire-laravel-developers)**
-- **[Redberry](https://redberry.international/laravel-development)**
-- **[Active Logic](https://activelogic.com)**
+2. Instalar dependências backend
 
-## Contributing
+```bash
+composer install
+```
 
-Thank you for considering contributing to the Laravel framework! The contribution guide can be found in the [Laravel documentation](https://laravel.com/docs/contributions).
+3. Preparar ambiente
 
-## Code of Conduct
+```bash
+cp .env.example .env
+php artisan key:generate
+```
 
-In order to ensure that the Laravel community is welcoming to all, please review and abide by the [Code of Conduct](https://laravel.com/docs/contributions#code-of-conduct).
+4. Configurar banco no `.env`
 
-## Security Vulnerabilities
+Exemplo SQLite:
 
-If you discover a security vulnerability within Laravel, please send an e-mail to Taylor Otwell via [taylor@laravel.com](mailto:taylor@laravel.com). All security vulnerabilities will be promptly addressed.
+```env
+DB_CONNECTION=sqlite
+```
 
-## License
+Crie o arquivo se necessário:
 
-The Laravel framework is open-sourced software licensed under the [MIT license](https://opensource.org/licenses/MIT).
+```bash
+touch database/database.sqlite
+```
+
+5. Rodar migrations e seeders
+
+```bash
+php artisan migrate --seed
+```
+
+6. Instalar dependências frontend e buildar
+
+```bash
+npm install
+npm run build
+```
+
+7. Subir o projeto
+
+```bash
+composer run dev
+```
+
+Ou separadamente:
+
+```bash
+php artisan serve
+npm run dev
+```
+
+## Acesso
+
+- URL local: `http://127.0.0.1:8000` (ou a exibida pelo `artisan serve`)
+- Usuário seed padrão:
+  - Email: `test@example.com`
+  - Senha: `password`
+
+## Seed de dados de demonstração
+
+O seeder principal (`MarketTrackerSeeder`) cria:
+
+- Produtos com categorias e preço base
+- Mercados com endereço e coordenadas
+- Relacionamentos mercado-produto
+- Notas históricas com itens e variação de preço simulada
+
+Rodar novamente:
+
+```bash
+php artisan db:seed --class=MarketTrackerSeeder
+```
+
+## Upload de PDF (notas)
+
+Se aparecer erro de upload no Livewire (ex.: `failed to upload`), aumente limites do PHP:
+
+```bash
+php -d upload_max_filesize=20M -d post_max_size=20M artisan serve
+```
+
+Ou configure no `php.ini`:
+
+- `upload_max_filesize`
+- `post_max_size`
+
+## Geolocalização e mapa no celular
+
+Navegadores exigem **contexto seguro** para geolocalização:
+
+- `https://...`
+- ou `http://localhost` (alguns casos locais)
+
+Para testar em dispositivo físico, use túnel HTTPS (ex.: ngrok) e configure:
+
+```env
+APP_URL=https://seu-dominio.ngrok-free.dev
+```
+
+O projeto já força `https` nas URLs quando `APP_URL` começa com `https://`.
+
+## Estrutura funcional (resumo)
+
+- `app/Filament/Resources`: CRUDs administrativos
+- `app/Filament/Widgets`: widgets e gráficos do dashboard
+- `app/Filament/Pages/Dashboard.php`: dashboard principal + mapa
+- `app/Services/InvoiceService.php`: processamento/enriquecimento da nota
+- `app/Services/Parsers/NfceMgParser.php`: parser de PDF NFC-e
+- `database/seeders`: dados de demonstração
+
+## Comandos úteis
+
+```bash
+# Rodar testes
+composer test
+
+# Limpar cache de config/rotas/views
+php artisan optimize:clear
+
+# Rebuild de assets
+npm run build
+```
+
+## Observações
+
+- Algumas integrações externas (consulta CNPJ/geocoding) dependem de conectividade e chave quando aplicável.
+- O parser NFC-e atual está orientado ao cenário de desenvolvimento e pode exigir ajustes para layouts reais diferentes de PDF.
+
+## Licença
+
+Projeto interno para estudo/produto. Ajuste esta seção conforme sua estratégia de distribuição.
