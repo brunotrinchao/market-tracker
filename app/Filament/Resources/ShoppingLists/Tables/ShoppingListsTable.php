@@ -2,13 +2,7 @@
 
 namespace App\Filament\Resources\ShoppingLists\Tables;
 
-use Filament\Actions\BulkActionGroup;
-use Filament\Actions\DeleteAction;
-use Filament\Actions\DeleteBulkAction;
-use Filament\Actions\Action;
-use Filament\Actions\ViewAction;
-use Filament\Forms\Components\Textarea;
-use Filament\Forms\Components\TextInput;
+use App\Filament\Resources\ShoppingLists\ShoppingListResource;
 use Filament\Tables\Columns\TextColumn;
 use Filament\Tables\Table;
 use Illuminate\Database\Eloquent\Builder;
@@ -19,6 +13,7 @@ class ShoppingListsTable
     {
         return $table
             ->modifyQueryUsing(fn (Builder $query) => $query->withCount(['items']))
+            ->recordUrl(fn ($record): string => ShoppingListResource::getUrl('view', ['record' => $record]))
             ->columns([
                 TextColumn::make('name')
                     ->label('Lista')
@@ -33,47 +28,17 @@ class ShoppingListsTable
                     ->sortable(),
                 TextColumn::make('created_at')
                     ->label('Criada em')
-                    ->dateTime()
+                    ->dateTime('d/m/Y H:i:s')
                     ->sortable()
                     ->toggleable(isToggledHiddenByDefault: true),
                 TextColumn::make('updated_at')
                     ->label('Atualizada em')
-                    ->dateTime()
+                    ->dateTime('d/m/Y H:i:s')
                     ->sortable()
                     ->toggleable(),
             ])
             ->filters([
                 //
-            ])
-            ->recordActions([
-                ViewAction::make()->label('Ver'),
-                Action::make('editShoppingList')
-                    ->label('Editar')
-                    ->icon('heroicon-o-pencil-square')
-                    ->modalHeading('Editar lista de compra')
-                    ->fillForm(fn ($record): array => [
-                        'name' => $record->name,
-                        'notes' => $record->notes,
-                    ])
-                    ->schema([
-                        TextInput::make('name')
-                            ->label('Nome da lista')
-                            ->required()
-                            ->maxLength(255),
-                        Textarea::make('notes')
-                            ->label('Observacoes')
-                            ->rows(3)
-                            ->maxLength(1000),
-                    ])
-                    ->action(fn ($record, array $data) => $record->update($data)),
-                DeleteAction::make()
-                    ->label('Excluir')
-                    ->requiresConfirmation(),
-            ])
-            ->toolbarActions([
-                BulkActionGroup::make([
-                    DeleteBulkAction::make(),
-                ]),
             ])
             ->defaultSort('updated_at', 'desc');
     }

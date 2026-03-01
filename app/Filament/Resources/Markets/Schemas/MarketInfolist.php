@@ -54,11 +54,11 @@ class MarketInfolist
                     ->components([
                         TextEntry::make('created_at')
                             ->label('Criado em')
-                            ->dateTime()
+                            ->dateTime('d/m/Y H:i:s')
                             ->placeholder('-'),
                         TextEntry::make('updated_at')
                             ->label('Atualizado em')
-                            ->dateTime()
+                            ->dateTime('d/m/Y H:i:s')
                             ->placeholder('-'),
                     ]),
             ]);

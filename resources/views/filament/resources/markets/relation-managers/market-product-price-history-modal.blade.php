@@ -1,6 +1,6 @@
 @php
     $prices = $history->pluck('unit_price')->map(fn ($value) => (float) $value)->values();
-    $labels = $history->pluck('issued_at')->map(fn ($date) => \Illuminate\Support\Carbon::parse($date)->format('d/m/Y'))->values();
+    $labels = $history->pluck('issued_at')->map(fn ($date) => \Illuminate\Support\Carbon::parse($date)->format('d/m/Y H:i:s'))->values();
 
     $minPrice = $prices->min();
     $maxPrice = $prices->max();

@@ -4,11 +4,7 @@ namespace App\Filament\Resources\Markets\RelationManagers;
 
 use App\Models\InvoiceItem;
 use Filament\Actions\Action;
-use Filament\Actions\BulkActionGroup;
 use Filament\Actions\CreateAction;
-use Filament\Actions\DeleteAction;
-use Filament\Actions\DeleteBulkAction;
-use Filament\Actions\EditAction;
 use Filament\Forms\Components\Select;
 use Filament\Forms\Components\TextInput;
 use Filament\Resources\RelationManagers\RelationManager;
@@ -98,21 +94,12 @@ class MarketProductsRelationManager extends RelationManager
                     ->label('Ultimo preco')
                     ->money('BRL'),
                 TextColumn::make('created_at')
-                    ->dateTime()
+                    ->dateTime('d/m/Y H:i:s')
                     ->sortable()
                     ->toggleable(isToggledHiddenByDefault: true),
             ])
             ->headerActions([
                 CreateAction::make(),
-            ])
-            ->recordActions([
-                EditAction::make(),
-                DeleteAction::make(),
-            ])
-            ->toolbarActions([
-                BulkActionGroup::make([
-                    DeleteBulkAction::make(),
-                ]),
             ]);
     }
 }

@@ -66,7 +66,7 @@ class PriceTrendChart extends ChartWidget
         $cursor = $startDate->copy();
         while ($cursor->lte($endDate)) {
             $dayKey = $cursor->toDateString();
-            $labels[] = $cursor->format('d/m');
+            $labels[] = $cursor->format('d/m/Y H:i:s');
 
             $dayValues = [];
 

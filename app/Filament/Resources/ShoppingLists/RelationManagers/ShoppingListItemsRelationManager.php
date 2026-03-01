@@ -2,13 +2,11 @@
 
 namespace App\Filament\Resources\ShoppingLists\RelationManagers;
 
+use App\Models\Address;
 use App\Models\InvoiceItem;
 use App\Models\Market;
 use Filament\Actions\Action;
-use Filament\Actions\BulkActionGroup;
-use Filament\Actions\DeleteAction;
-use Filament\Actions\DeleteBulkAction;
-use Filament\Actions\EditAction;
+use Filament\Forms\Components\Placeholder;
 use Filament\Forms\Components\Repeater;
 use Filament\Forms\Components\Select;
 use Filament\Forms\Components\TextInput;
@@ -21,6 +19,7 @@ use Filament\Tables\Columns\TextColumn;
 use Filament\Tables\Filters\SelectFilter;
 use Filament\Tables\Table;
 use Illuminate\Database\Eloquent\Builder;
+use Illuminate\Support\HtmlString;
 use Illuminate\View\View;
 
 class ShoppingListItemsRelationManager extends RelationManager
@@ -77,6 +76,14 @@ class ShoppingListItemsRelationManager extends RelationManager
                         ->select('markets.name')
                         ->orderBy('ii.unit_price')
                         ->limit(1),
+                    'best_market_neighborhood' => Address::query()
+                        ->join('markets', 'addresses.market_id', '=', 'markets.id')
+                        ->join('market_products as mp', 'markets.id', '=', 'mp.market_id')
+                        ->join('invoice_items as ii', 'ii.market_product_id', '=', 'mp.id')
+                        ->whereColumn('mp.product_id', 'shopping_list_items.product_id')
+                        ->select('addresses.neighborhood')
+                        ->orderBy('ii.unit_price')
+                        ->limit(1),
                 ]);
             })
             ->columns([
@@ -89,7 +96,82 @@ class ShoppingListItemsRelationManager extends RelationManager
                     ->label('Produto')
                     ->searchable()
                     ->sortable()
-                    ->weight('semi-bold'),
+                    ->weight('semi-bold')
+                    ->action(
+                        Action::make('manageShoppingListItem')
+                            ->label('Gerenciar item')
+                            ->slideOver()
+                            ->modalHeading(fn ($record): string => 'Item da lista - ' . ($record->product->name ?? 'Produto'))
+                            ->modalSubmitActionLabel('Salvar')
+                            ->modalCancelActionLabel('Cancelar')
+                            ->extraModalFooterActions(fn (Action $action): array => [
+                                $action->makeModalSubmitAction('remove', arguments: ['remove' => true])
+                                    ->label('Remover da lista')
+                                    ->color('danger'),
+                            ])
+                            ->fillForm(fn ($record): array => [
+                                'quantity' => (float) $record->quantity,
+                            ])
+                            ->form([
+                                Placeholder::make('product_image')
+                                    ->hiddenLabel()
+                                    ->content(function ($record): HtmlString {
+                                        $image = $record->product?->image ?: 'https://placehold.co/960x420/e5e7eb/6b7280?text=Produto';
+
+                                        return new HtmlString("<img src=\"{$image}\" alt=\"Produto\" style=\"width:100%;max-width:100%;height:220px;object-fit:cover;border-radius:12px;\" />");
+                                    }),
+                                Placeholder::make('product_name')
+                                    ->label('Produto')
+                                    ->content(fn ($record): string => $record->product->name ?? '-'),
+                                Placeholder::make('best_price_info')
+                                    ->label('Menor preço')
+                                    ->content(fn ($record): string => $record->best_price !== null ? 'R$ ' . number_format((float) $record->best_price, 2, ',', '.') : '-'),
+                                Placeholder::make('best_market_name_info')
+                                    ->label('Onde comprar')
+                                    ->content(fn ($record): string => $record->best_market_name ?? '-'),
+                                Placeholder::make('best_market_neighborhood_info')
+                                    ->label('Bairro')
+                                    ->content(fn ($record): string => $record->best_market_neighborhood ?? '-'),
+                                Placeholder::make('estimated_subtotal_info')
+                                    ->label('Subtotal estimado')
+                                    ->content(function ($record): string {
+                                        if ($record->best_price === null) {
+                                            return '-';
+                                        }
+
+                                        $subtotal = ((float) $record->quantity) * ((float) $record->best_price);
+
+                                        return 'R$ ' . number_format($subtotal, 2, ',', '.');
+                                    }),
+                                TextInput::make('quantity')
+                                    ->label('Quantidade')
+                                    ->numeric()
+                                    ->minValue(0.001)
+                                    ->step(0.001)
+                                    ->required(),
+                            ])
+                            ->action(function ($record, array $data, array $arguments): void {
+                                if ($arguments['remove'] ?? false) {
+                                    $record->delete();
+
+                                    Notification::make()
+                                        ->title('Produto removido da lista')
+                                        ->success()
+                                        ->send();
+
+                                    return;
+                                }
+
+                                $record->update([
+                                    'quantity' => (float) $data['quantity'],
+                                ]);
+
+                                Notification::make()
+                                    ->title('Quantidade atualizada com sucesso')
+                                    ->success()
+                                    ->send();
+                            }),
+                    ),
                 TextColumn::make('quantity')
                     ->label('Qtd')
                     ->numeric(decimalPlaces: 3),
@@ -132,6 +214,9 @@ class ShoppingListItemsRelationManager extends RelationManager
                             }),
                     )
                     ->placeholder('Sem histórico'),
+                TextColumn::make('best_market_neighborhood')
+                    ->label('Bairro')
+                    ->placeholder('-'),
                 TextColumn::make('estimated_subtotal')
                     ->label('Subtotal estimado')
                     ->state(function ($record): ?float {
@@ -218,15 +303,6 @@ class ShoppingListItemsRelationManager extends RelationManager
 
                         return $query->having('best_market_id', '=', (int) $value);
                     }),
-            ])
-            ->recordActions([
-                EditAction::make()->label('Editar'),
-                DeleteAction::make()->label('Excluir'),
-            ])
-            ->toolbarActions([
-                BulkActionGroup::make([
-                    DeleteBulkAction::make(),
-                ]),
             ]);
     }
 }

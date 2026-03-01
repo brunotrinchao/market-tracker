@@ -41,7 +41,7 @@ class BestPricesWidget extends TableWidget
                     ->color(fn ($state) => $state < 10 ? 'success' : 'gray'),
                 TextColumn::make('invoice.issued_at')
                     ->label('Data da Nota')
-                    ->dateTime('d/m/Y'),
+                    ->dateTime('d/m/Y H:i:s'),
             ]);
     }
 }

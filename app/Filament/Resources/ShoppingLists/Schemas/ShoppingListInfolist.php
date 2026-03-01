@@ -57,11 +57,11 @@ class ShoppingListInfolist
                             ->columnSpanFull(),
                         TextEntry::make('created_at')
                             ->label('Criada em')
-                            ->dateTime()
+                            ->dateTime('d/m/Y H:i:s')
                             ->placeholder('-'),
                         TextEntry::make('updated_at')
                             ->label('Atualizada em')
-                            ->dateTime()
+                            ->dateTime('d/m/Y H:i:s')
                             ->placeholder('-'),
                     ]),
             ]);

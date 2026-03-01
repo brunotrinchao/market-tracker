@@ -54,7 +54,7 @@ class InvoiceItemsRelationManager extends RelationManager
             // Data da Compra
             TextColumn::make('invoice.issued_at')
                 ->label('Data')
-                ->dateTime('d/m/Y')
+                ->dateTime('d/m/Y H:i:s')
                 ->sortable(),
 
             // Quantidade (Ex: 0.815 kg para Batata)

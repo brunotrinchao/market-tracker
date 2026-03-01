@@ -2,12 +2,7 @@
 
 namespace App\Filament\Resources\Products\Tables;
 
-use Filament\Actions\BulkActionGroup;
-use Filament\Actions\DeleteAction;
-use Filament\Actions\DeleteBulkAction;
-use Filament\Actions\Action;
-use Filament\Actions\ViewAction;
-use Filament\Forms\Components\TextInput;
+use App\Filament\Resources\Products\ProductResource;
 use Filament\Tables\Columns\ImageColumn;
 use Filament\Tables\Columns\TextColumn;
 use Filament\Tables\Table;
@@ -19,6 +14,7 @@ class ProductsTable
     {
         return $table
             ->modifyQueryUsing(fn (Builder $query) => $query->withCount(['markets']))
+            ->recordUrl(fn ($record): string => ProductResource::getUrl('view', ['record' => $record]))
             ->columns([
                 ImageColumn::make('image')
                     ->label('Imagem')
@@ -43,51 +39,17 @@ class ProductsTable
                     ->sortable(),
                 TextColumn::make('created_at')
                     ->label('Criado em')
-                    ->dateTime()
+                    ->dateTime('d/m/Y H:i:s')
                     ->sortable()
                     ->toggleable(isToggledHiddenByDefault: true),
                 TextColumn::make('updated_at')
                     ->label('Atualizado em')
-                    ->dateTime()
+                    ->dateTime('d/m/Y H:i:s')
                     ->sortable()
                     ->toggleable(),
             ])
             ->filters([
                 //
-            ])
-            ->recordActions([
-                ViewAction::make()->label('Detalhes'),
-                Action::make('editProduct')
-                    ->label('Editar')
-                    ->icon('heroicon-o-pencil-square')
-                    ->modalHeading('Editar produto')
-                    ->fillForm(fn ($record): array => [
-                        'name' => $record->name,
-                        'category' => $record->category,
-                        'image' => $record->image,
-                    ])
-                    ->schema([
-                        TextInput::make('name')
-                            ->label('Nome')
-                            ->required()
-                            ->maxLength(255),
-                        TextInput::make('category')
-                            ->label('Categoria')
-                            ->maxLength(255),
-                        TextInput::make('image')
-                            ->label('URL da imagem')
-                            ->url()
-                            ->maxLength(255),
-                    ])
-                    ->action(fn ($record, array $data) => $record->update($data)),
-                DeleteAction::make()
-                    ->label('Excluir')
-                    ->requiresConfirmation(),
-            ])
-            ->toolbarActions([
-                BulkActionGroup::make([
-                    DeleteBulkAction::make(),
-                ]),
             ])
             ->defaultSort('updated_at', 'desc');
     }
