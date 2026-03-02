@@ -33,7 +33,7 @@ class ProductResource extends Resource
 
     protected static UnitEnum|string|null $navigationGroup = 'Cadastros';
 
-    protected static ?int $navigationSort = 3;
+    protected static ?int $navigationSort = 4;
 
     public static function form(Schema $schema): Schema
     {

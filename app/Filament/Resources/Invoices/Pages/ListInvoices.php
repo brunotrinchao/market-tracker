@@ -63,6 +63,10 @@ class ListInvoices extends ListRecords
                             ->success()
                             ->send();
 
+                        $this->redirect(InvoiceResource::getUrl('view', [
+                            'record' => $invoice,
+                        ]));
+
                     } catch (\Exception $e) {
                         Log::error('Erro ao importar nota via QR Code.', [
                             'exception' => $e,

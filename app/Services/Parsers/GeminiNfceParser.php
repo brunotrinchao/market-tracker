@@ -380,12 +380,8 @@ class GeminiNfceParser
             'state' => null,
         ];
 
-        if (! preg_match('/\b(RUA|AVENIDA|AV\.|RODOVIA|ESTRADA|TRAVESSA)\b[^\n]+/iu', $text, $matches)) {
-            return $details;
-        }
-
-        $line = trim((string) ($matches[0] ?? ''));
-        if ($line === '') {
+        $line = $this->extractAddressLineFromText($text);
+        if ($line === null) {
             return $details;
         }
 
@@ -404,11 +400,10 @@ class GeminiNfceParser
 
     protected function extractZipCodeFromAddressLine(string $text): ?string
     {
-        if (! preg_match('/\b(?:RUA|AVENIDA|AV\.|RODOVIA|ESTRADA|TRAVESSA)\b[^\n]*/iu', $text, $lineMatch)) {
+        $line = $this->extractAddressLineFromText($text);
+        if ($line === null) {
             return null;
         }
-
-        $line = trim((string) ($lineMatch[0] ?? ''));
 
         // Ex.: "... CORACAO EUCARISTICO, 3106200 - BELO HORIZONTE, MG"
         if (preg_match('/,\s*([0-9]{7,8})\s*-\s*[^,\n]+,\s*[A-Z]{2}\b/u', $line, $zipMatch)) {
@@ -416,6 +411,118 @@ class GeminiNfceParser
         }
 
         return null;
+    }
+
+    protected function extractAddressLineFromText(string $text): ?string
+    {
+        $primaryText = $this->extractPrimaryNfceSection($text);
+
+        $line = $this->pickBestAddressLine($primaryText);
+        if ($line !== null) {
+            return $line;
+        }
+
+        return $this->pickBestAddressLine($text);
+    }
+
+    protected function pickBestAddressLine(string $text): ?string
+    {
+        $lines = preg_split('/\r\n|\r|\n/u', $text) ?: [];
+        $candidates = [];
+
+        $cnpjPosition = null;
+        if (preg_match('/CNPJ\s*[:\-]?\s*[\d\.\/\-]{14,18}/iu', $text, $cnpjMatch, PREG_OFFSET_CAPTURE)) {
+            $cnpjPosition = (int) ($cnpjMatch[0][1] ?? 0);
+        }
+
+        foreach ($lines as $line) {
+            $line = trim((string) preg_replace('/\s+/', ' ', $line));
+            if ($line === '') {
+                continue;
+            }
+
+            if (! preg_match('/^(RUA|R\.|AVENIDA|AV\.|ALAMEDA|AL\.|ESTRADA|TRAVESSA|TV\.|PRA[ÇC]A|LARGO)\b/iu', $line)) {
+                continue;
+            }
+
+            if ($this->isLikelyInstitutionalAddress($line)) {
+                continue;
+            }
+
+            $score = 0;
+
+            if (preg_match('/,\s*\d{7,8}\s*-\s*[^,\n]+,\s*[A-Z]{2}\b/u', $line)) {
+                $score += 100;
+            }
+
+            if (preg_match('/-\s*[^,\n]+,\s*[A-Z]{2}\b/u', $line)) {
+                $score += 40;
+            }
+
+            if (substr_count($line, ',') >= 3) {
+                $score += 30;
+            }
+
+            if ($cnpjPosition !== null) {
+                $linePosition = mb_stripos($text, $line);
+                if ($linePosition !== false) {
+                    $distance = (int) $linePosition - $cnpjPosition;
+                    if ($distance >= 0 && $distance <= 800) {
+                        $score += 60;
+                    }
+                }
+            }
+
+            $candidates[] = [
+                'line' => $line,
+                'score' => $score,
+            ];
+        }
+
+        if ($candidates === []) {
+            return null;
+        }
+
+        usort($candidates, fn (array $a, array $b): int => $b['score'] <=> $a['score']);
+        $best = $candidates[0] ?? null;
+
+        if (! is_array($best) || ($best['score'] ?? 0) <= 0) {
+            return null;
+        }
+
+        return (string) $best['line'];
+    }
+
+    protected function extractPrimaryNfceSection(string $text): string
+    {
+        if (preg_match('/^(.+?)(?:\bInforma[cç][oõ]es gerais da Nota\b|\bImprimir\b|\bVers[aã]o\b)/isu', $text, $matches)) {
+            return trim((string) ($matches[1] ?? $text));
+        }
+
+        return $text;
+    }
+
+    protected function isLikelyInstitutionalAddress(string $line): bool
+    {
+        $normalized = mb_strtolower($line);
+
+        $markers = [
+            'rodovia papa jo',
+            'prédio gerais',
+            'predio gerais',
+            'bairro serra verde',
+            'secretaria de estado',
+            'sef/mg',
+            'cep 31630-901',
+        ];
+
+        foreach ($markers as $marker) {
+            if (str_contains($normalized, $marker)) {
+                return true;
+            }
+        }
+
+        return false;
     }
 
     protected function normalizePayload(array $payload): array

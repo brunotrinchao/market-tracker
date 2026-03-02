@@ -3,6 +3,7 @@
 namespace App\Filament\Resources\Products\Pages;
 
 use App\Filament\Resources\Products\ProductResource;
+use App\Services\Products\ProductCategoryClassifier;
 use Filament\Actions\DeleteAction;
 use Filament\Actions\ViewAction;
 use Filament\Notifications\Notification;
@@ -29,5 +30,17 @@ class EditProduct extends EditRecord
         return Notification::make()
             ->success()
             ->title('Produto atualizado com sucesso.');
+    }
+
+    protected function mutateFormDataBeforeSave(array $data): array
+    {
+        if (! empty($data['category_id'])) {
+            return $data;
+        }
+
+        $data['category_id'] = app(ProductCategoryClassifier::class)
+            ->inferCategoryId((string) ($data['name'] ?? ''));
+
+        return $data;
     }
 }

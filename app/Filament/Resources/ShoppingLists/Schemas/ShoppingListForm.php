@@ -18,8 +18,11 @@ class ShoppingListForm
                     ->components([
                         TextInput::make('name')
                             ->label('Nome da lista')
-                            ->placeholder('Ex: Compra do mês')
+                            ->default(fn (): string => now()->format('d/m/Y H:i:s'))
+                            ->readOnly()
                             ->required()
+                            ->dehydrated()
+                            ->helperText('Gerado automaticamente com data e hora da criação.')
                             ->maxLength(255),
                         Textarea::make('notes')
                             ->label('Observações')

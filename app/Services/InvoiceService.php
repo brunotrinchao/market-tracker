@@ -6,6 +6,7 @@ use App\Models\Invoice;
 use App\Models\Market;
 use App\Models\MarketProduct;
 use App\Models\Product;
+use App\Services\Products\ProductCategoryClassifier;
 use App\Services\Products\ProductNameNormalizer;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Http;
@@ -15,6 +16,7 @@ class InvoiceService
 {
     public function __construct(
         private ProductNameNormalizer $productNameNormalizer,
+        private ProductCategoryClassifier $productCategoryClassifier,
     ) {
     }
 
@@ -230,6 +232,14 @@ class InvoiceService
 
             if (! $product->original_name && $originalName !== '') {
                 $product->update(['original_name' => $originalName]);
+            }
+
+            if (! $product->category_id) {
+                $inferredCategoryId = $this->productCategoryClassifier->inferCategoryId($product->name);
+
+                if ($inferredCategoryId) {
+                    $product->update(['category_id' => $inferredCategoryId]);
+                }
             }
 
             // C. Criamos o vínculo (De-Para) para compras futuras

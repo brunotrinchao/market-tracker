@@ -31,7 +31,7 @@ class ProductsTable
                     ->searchable()
                     ->toggleable(isToggledHiddenByDefault: true)
                     ->placeholder('-'),
-                TextColumn::make('category')
+                TextColumn::make('category.name')
                     ->label('Categoria')
                     ->searchable()
                     ->badge()

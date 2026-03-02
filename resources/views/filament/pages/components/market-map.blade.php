@@ -7,6 +7,8 @@
         x-data="{
             markets: @js($markets),
             map: null,
+            markersByMarketId: {},
+            selectedMarketId: null,
             mapId: '{{ $mapId }}',
             defaultCenter: [-19.939, -44.006],
             defaultZoom: 13,
@@ -104,6 +106,8 @@
                     if (this.map) {
                         this.map.setView(this.userLatLng, 14);
                     }
+
+                    this.sortMarketsByDistance();
                 } catch (error) {
                     this.userLocationError = this.normalizeLocationError(error);
                 } finally {
@@ -160,6 +164,86 @@
                 );
 
                 this.resolvedMarkets = this.resolvedMarkets.filter((market) => market && market.lat !== null && market.lng !== null);
+                this.resolvedMarkets.sort((a, b) => String(a.name || '').localeCompare(String(b.name || ''), 'pt-BR'));
+            },
+            toRadians(value) {
+                return (Number(value) * Math.PI) / 180;
+            },
+            distanceInKm(lat1, lng1, lat2, lng2) {
+                const earthRadiusKm = 6371;
+                const dLat = this.toRadians(lat2 - lat1);
+                const dLng = this.toRadians(lng2 - lng1);
+                const a =
+                    Math.sin(dLat / 2) * Math.sin(dLat / 2) +
+                    Math.cos(this.toRadians(lat1)) * Math.cos(this.toRadians(lat2)) *
+                    Math.sin(dLng / 2) * Math.sin(dLng / 2);
+                const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+
+                return earthRadiusKm * c;
+            },
+            marketDistanceLabel(market) {
+                if (!this.userLatLng || market.lat === null || market.lng === null) {
+                    return null;
+                }
+
+                const distance = this.distanceInKm(
+                    this.userLatLng[0],
+                    this.userLatLng[1],
+                    Number(market.lat),
+                    Number(market.lng),
+                );
+
+                if (!isFinite(distance)) {
+                    return null;
+                }
+
+                return `${distance.toFixed(1).replace('.', ',')} km`;
+            },
+            sortMarketsByDistance() {
+                if (!this.userLatLng) {
+                    this.resolvedMarkets.sort((a, b) => String(a.name || '').localeCompare(String(b.name || ''), 'pt-BR'));
+                    return;
+                }
+
+                this.resolvedMarkets.sort((a, b) => {
+                    const distanceA = this.marketDistanceLabel(a);
+                    const distanceB = this.marketDistanceLabel(b);
+
+                    if (distanceA === null && distanceB === null) {
+                        return String(a.name || '').localeCompare(String(b.name || ''), 'pt-BR');
+                    }
+
+                    if (distanceA === null) return 1;
+                    if (distanceB === null) return -1;
+
+                    const valueA = Number(distanceA.replace(' km', '').replace(',', '.'));
+                    const valueB = Number(distanceB.replace(' km', '').replace(',', '.'));
+
+                    return valueA - valueB;
+                });
+            },
+            marketInitials(name) {
+                const words = String(name || '').trim().split(/\s+/).filter(Boolean);
+
+                if (words.length >= 2) {
+                    return (words[0][0] + words[1][0]).toUpperCase();
+                }
+
+                return String(words[0] || 'MC').slice(0, 2).toUpperCase();
+            },
+            focusMarket(marketId, zoom = 16) {
+                const market = this.resolvedMarkets.find((item) => Number(item.id) === Number(marketId));
+                if (!market || !this.map) {
+                    return;
+                }
+
+                this.selectedMarketId = Number(market.id);
+                this.map.setView([market.lat, market.lng], zoom, { animate: true });
+
+                const marker = this.markersByMarketId[this.selectedMarketId];
+                if (marker) {
+                    marker.openPopup();
+                }
             },
             initMap() {
                 const setup = async () => {
@@ -210,9 +294,12 @@
                                 '</div>' +
                             '</div>';
 
-                        window.L.marker([market.lat, market.lng], markerOptions)
+                        this.markersByMarketId[Number(market.id)] = window.L.marker([market.lat, market.lng], markerOptions)
                             .addTo(this.map)
-                            .bindPopup(popupHtml);
+                            .bindPopup(popupHtml)
+                            .on('click', () => {
+                                this.selectedMarketId = Number(market.id);
+                            });
                     });
 
                     if (this.resolvedMarkets.length > 0 && !this.userLatLng) {
@@ -247,7 +334,55 @@
     >
         <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
 
-        <div id="{{ $mapId }}" style="height: 500px; border-radius: 12px;"></div>
+        <div style="display:grid;gap:12px;grid-template-columns:minmax(0,2fr) minmax(300px,1fr);align-items:start;">
+            <div>
+                <div id="{{ $mapId }}" style="height: 500px; border-radius: 12px;"></div>
+            </div>
+
+            <div>
+                <div style="height:500px;overflow-y:auto;border:1px solid #e5e7eb;border-radius:12px;background:#fff;padding:8px;">
+                    <p style="padding:0 8px 8px 8px;font-size:12px;font-weight:600;letter-spacing:.04em;text-transform:uppercase;color:#6b7280;">
+                        Mercados cadastrados
+                    </p>
+
+                    <template x-if="resolvedMarkets.length === 0">
+                        <p style="padding:0 8px;font-size:14px;color:#6b7280;">Nenhum mercado com coordenadas encontrado.</p>
+                    </template>
+
+                    <div style="display:grid;gap:8px;">
+                        <template x-for="(market, index) in resolvedMarkets" :key="market.id">
+                            <button
+                                type="button"
+                                @click="focusMarket(market.id)"
+                                style="width:100%;padding:12px 8px;text-align:left;cursor:pointer;transition:all .15s ease;background:#ffffff;border:1px solid #e5e7eb;border-radius:10px;"
+                                :style="Number(selectedMarketId) === Number(market.id)
+                                    ? 'background:#eff6ff;border-color:#bfdbfe;'
+                                    : 'background:#ffffff;border-color:#e5e7eb;'"
+                            >
+                                <div style="display:grid;grid-template-columns:56px minmax(0,1fr);gap:10px;align-items:center;">
+                                    <div style="display:flex;align-items:center;justify-content:center;">
+                                        <template x-if="market.image">
+                                            <img :src="market.image" :alt="market.name" style="width:52px;height:52px;border-radius:10px;object-fit:cover;border:1px solid #e5e7eb;" />
+                                        </template>
+                                        <template x-if="!market.image">
+                                            <div style="width:52px;height:52px;border-radius:10px;background:#e5e7eb;color:#374151;display:flex;align-items:center;justify-content:center;font-size:12px;font-weight:700;" x-text="marketInitials(market.name)"></div>
+                                        </template>
+                                    </div>
+
+                                    <div style="min-width:0;">
+                                        <div style="display:flex;align-items:center;justify-content:space-between;gap:8px;">
+                                            <div style="font-size:14px;font-weight:600;color:#1f2937;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;" x-text="market.name"></div>
+                                            <div style="font-size:12px;font-weight:700;color:#2563eb;white-space:nowrap;" x-text="marketDistanceLabel(market) ?? '-'"></div>
+                                        </div>
+                                        <div style="font-size:12px;color:#6b7280;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;" x-text="market.address"></div>
+                                    </div>
+                                </div>
+                            </button>
+                        </template>
+                    </div>
+                </div>
+            </div>
+        </div>
 
         <div class="mt-3">
             <button
@@ -262,9 +397,5 @@
         </div>
 
         <p x-show="userLocationError" x-text="userLocationError" class="mt-3 text-sm text-amber-600"></p>
-
-        @if (empty($markets) || count($markets) === 0)
-            <p class="mt-3 text-sm text-gray-500">Nenhum mercado com coordenadas encontrado.</p>
-        @endif
     </div>
 </div>

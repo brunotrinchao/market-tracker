@@ -26,7 +26,7 @@ class ProductInfolist
                             ->label('Nome')
                             ->size('lg')
                             ->weight('bold'),
-                        TextEntry::make('category')
+                        TextEntry::make('category.name')
                             ->label('Categoria')
                             ->badge()
                             ->placeholder('Nao informada'),
@@ -46,11 +46,11 @@ class ProductInfolist
                             ->color('success'),
                         TextEntry::make('created_at')
                             ->label('Criado em')
-                            ->dateTime('d/m/Y H:i:s')
+                            ->date('d/m/Y')
                             ->placeholder('-'),
                         TextEntry::make('updated_at')
                             ->label('Atualizado em')
-                            ->dateTime('d/m/Y H:i:s')
+                            ->date('d/m/Y')
                             ->placeholder('-'),
                     ]),
             ]);

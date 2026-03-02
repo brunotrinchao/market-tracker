@@ -14,7 +14,7 @@ class CreateShoppingList extends CreateRecord
 
     protected function getRedirectUrl(): string
     {
-        return static::getResource()::getUrl('view', [
+        return static::getResource()::getUrl('edit', [
             'record' => $this->getRecord(),
         ]);
     }

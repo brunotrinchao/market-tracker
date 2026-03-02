@@ -26,6 +26,7 @@ class ItemsByMarketChart extends ChartWidget
             ->limit(8)
             ->get([
                 'markets.name as market_name',
+                DB::raw('(SELECT a.neighborhood FROM addresses a WHERE a.market_id = markets.id ORDER BY a.id DESC LIMIT 1) as market_neighborhood'),
                 DB::raw('COUNT(invoice_items.id) as total_items'),
             ]);
 
@@ -38,7 +39,16 @@ class ItemsByMarketChart extends ChartWidget
                     'borderColor' => '#0284c7',
                 ],
             ],
-            'labels' => $rows->pluck('market_name')->all(),
+            'labels' => $rows
+                ->map(function ($row): string {
+                    $marketName = (string) $row->market_name;
+                    $neighborhood = trim((string) ($row->market_neighborhood ?? ''));
+
+                    return $neighborhood !== ''
+                        ? "{$marketName} ({$neighborhood})"
+                        : $marketName;
+                })
+                ->all(),
         ];
     }
 

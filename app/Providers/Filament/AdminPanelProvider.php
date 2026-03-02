@@ -3,6 +3,7 @@
 namespace App\Providers\Filament;
 
 use App\Filament\Pages\Dashboard;
+use App\Filament\Resources\Invoices\InvoiceResource;
 use App\Filament\Widgets\InvoiceImportsTrendChart;
 use App\Filament\Widgets\ItemsByMarketChart;
 use App\Filament\Widgets\MarketTrackerStatsOverview;
@@ -15,6 +16,7 @@ use Filament\Panel;
 use Filament\PanelProvider;
 use Filament\Support\Colors\Color;
 use Filament\Support\Enums\Width;
+use Filament\View\PanelsRenderHook;
 use Filament\Widgets\AccountWidget;
 use Illuminate\Cookie\Middleware\AddQueuedCookiesToResponse;
 use Illuminate\Cookie\Middleware\EncryptCookies;
@@ -63,6 +65,14 @@ class AdminPanelProvider extends PanelProvider
             ])
             ->authMiddleware([
                 Authenticate::class,
-            ]);
+            ])
+            ->renderHook(
+                PanelsRenderHook::BODY_END,
+                fn () => view('filament.components.floating-new-invoice-button', [
+                    'url' => InvoiceResource::getUrl('index', [
+                        'action' => 'importInvoice',
+                    ]),
+                ]),
+            );
     }
 }

@@ -3,8 +3,11 @@
 namespace App\Filament\Resources\Products\Pages;
 
 use App\Filament\Resources\Products\ProductResource;
+use App\Models\Category;
+use App\Services\Products\ProductCategoryClassifier;
 use Filament\Actions\Action;
 use Filament\Actions\DeleteAction;
+use Filament\Forms\Components\Select;
 use Filament\Forms\Components\TextInput;
 use Filament\Notifications\Notification;
 use Filament\Resources\Pages\ViewRecord;
@@ -53,7 +56,7 @@ class ViewProduct extends ViewRecord
                 ->modalHeading('Editar produto')
                 ->fillForm(fn (): array => [
                     'name' => $this->record->name,
-                    'category' => $this->record->category,
+                    'category_id' => $this->record->category_id,
                     'image' => $this->record->image,
                 ])
                 ->schema([
@@ -61,15 +64,23 @@ class ViewProduct extends ViewRecord
                         ->label('Nome')
                         ->required()
                         ->maxLength(255),
-                    TextInput::make('category')
+                    Select::make('category_id')
                         ->label('Categoria')
-                        ->maxLength(255),
+                        ->options(fn (): array => Category::query()->orderBy('name')->pluck('name', 'id')->all())
+                        ->searchable()
+                        ->preload()
+                        ->placeholder('Sem categoria'),
                     TextInput::make('image')
                         ->label('URL da imagem')
                         ->url()
                         ->maxLength(255),
                 ])
                 ->action(function (array $data): void {
+                    if (empty($data['category_id'])) {
+                        $data['category_id'] = app(ProductCategoryClassifier::class)
+                            ->inferCategoryId((string) ($data['name'] ?? ''));
+                    }
+
                     $this->record->update($data);
                     $this->record->refresh();
                 }),

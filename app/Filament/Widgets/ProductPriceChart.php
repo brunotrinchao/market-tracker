@@ -62,7 +62,7 @@ class ProductPriceChart extends ChartWidget
         }
 
         $labels = $allDates
-            ->map(fn ($date) => Carbon::parse($date)->format('d/m/Y H:i:s'))
+            ->map(fn ($date) => Carbon::parse($date)->format('d/m/Y'))
             ->values()
             ->all();
 

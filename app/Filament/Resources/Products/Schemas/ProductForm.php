@@ -2,6 +2,7 @@
 
 namespace App\Filament\Resources\Products\Schemas;
 
+use Filament\Forms\Components\Select;
 use Filament\Forms\Components\TextInput;
 use Filament\Schemas\Components\Section;
 use Filament\Schemas\Schema;
@@ -27,10 +28,13 @@ class ProductForm
                             ->placeholder('Ex: CAFE TORR 500G')
                             ->maxLength(255)
                             ->columnSpanFull(),
-                        TextInput::make('category')
+                        Select::make('category_id')
                             ->label('Categoria')
-                            ->placeholder('Ex: Mercearia')
-                            ->maxLength(255),
+                            ->relationship('category', 'name')
+                            ->searchable()
+                            ->preload()
+                            ->placeholder('Sem categoria')
+                            ->helperText('Se nao informar, o sistema tenta identificar automaticamente.'),
                         TextInput::make('image')
                             ->label('URL da imagem')
                             ->placeholder('https://...')

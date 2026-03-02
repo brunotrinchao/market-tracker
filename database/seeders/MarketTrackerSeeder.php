@@ -3,6 +3,7 @@
 namespace Database\Seeders;
 
 use App\Models\Address;
+use App\Models\Category;
 use App\Models\Invoice;
 use App\Models\InvoiceItem;
 use App\Models\Market;
@@ -23,6 +24,8 @@ class MarketTrackerSeeder extends Seeder
         Product::query()->delete();
         Market::query()->delete();
 
+        $categoriesByName = Category::query()->pluck('id', 'name');
+
         $products = collect([
             ['name' => 'Arroz Tipo 1 5kg', 'category' => 'Mercearia', 'base_price' => 29.90, 'unit' => 'UN'],
             ['name' => 'Feijao Carioca 1kg', 'category' => 'Mercearia', 'base_price' => 9.80, 'unit' => 'UN'],
@@ -37,14 +40,14 @@ class MarketTrackerSeeder extends Seeder
         ])->map(function (array $data) {
             $product = Product::query()->create([
                 'name' => $data['name'],
-                'category' => $data['category'],
+                'category_id' => $categoriesByName[$data['category']] ?? null,
                 'image' => null,
             ]);
 
             return [
                 'id' => $product->id,
                 'name' => $product->name,
-                'category' => $product->category,
+                'category_id' => $product->category_id,
                 'image' => $product->image,
                 'base_price' => $data['base_price'],
                 'unit' => $data['unit'],

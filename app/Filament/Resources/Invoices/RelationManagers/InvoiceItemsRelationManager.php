@@ -70,6 +70,12 @@ class InvoiceItemsRelationManager extends RelationManager
                     : null)
                 ->sortable(),
 
+            TextColumn::make('marketProduct.product.category.name')
+                ->label('Categoria')
+                ->badge()
+                ->placeholder('-')
+                ->sortable(),
+
             // Quantidade (Ex: 0.815 kg para Batata)
             TextColumn::make('quantity')
                 ->label('Qtd')

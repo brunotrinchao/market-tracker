@@ -353,4 +353,5 @@ class ShoppingListItemsRelationManager extends RelationManager
 
         return $map[$unitCode] ?? $unitCode;
     }
+
 }
