@@ -11,7 +11,7 @@ A aplicação foi construída com Laravel + Filament e foco em uso administrativ
   - Supermercados (com endereço e coordenadas)
   - Notas fiscais e itens
   - Listas de compra
-- Importação de nota fiscal via PDF (parser NFC-e)
+- Importação de nota fiscal por leitura de QR Code (câmera)
 - Histórico de preços por produto e por supermercado
 - Dashboard com indicadores e gráficos relevantes:
   - KPIs gerais
@@ -31,6 +31,7 @@ A aplicação foi construída com Laravel + Filament e foco em uso administrativ
 - Vite + Tailwind CSS
 - Banco: SQLite (padrão) ou MySQL/PostgreSQL
 - Parser de PDF: `smalot/pdfparser`
+- IA de extração: Google Gemini API
 
 ## Requisitos
 
@@ -136,6 +137,47 @@ Ou configure no `php.ini`:
 - `upload_max_filesize`
 - `post_max_size`
 
+## Importação por QR Code
+
+- Ao clicar em `Importar nota`, a câmera é aberta no modal para leitura do QR Code da NFC-e.
+- A URL lida no QR é consultada pelo backend e o retorno completo é enviado para a IA extrair:
+  - mercado
+  - data de emissão
+  - valor total
+  - itens/produtos
+
+## Configuração da IA (Gemini)
+
+Defina no `.env`:
+
+```env
+GEMINI_API_KEY=sua-chave
+GEMINI_MODEL=gemini-2.0-flash
+GEMINI_TIMEOUT=90
+GEMINI_FALLBACK_REGEX=false
+```
+
+- `GEMINI_FALLBACK_REGEX=true` ativa fallback para parser regex legado se a IA falhar.
+- Sem `GEMINI_API_KEY`, a importação por IA nao funciona.
+
+## Consulta de nota pela chave de acesso
+
+Para usar chave de acesso (44 dígitos) como fonte principal dos dados da nota, configure:
+
+```env
+NFCE_LOOKUP_URL_TEMPLATE=https://seu-endpoint/nfce/{access_key}
+NFCE_LOOKUP_TOKEN=
+NFCE_LOOKUP_TOKEN_HEADER=Authorization
+NFCE_LOOKUP_TOKEN_PREFIX="Bearer "
+NFCE_LOOKUP_TIMEOUT=30
+```
+
+Regras do fluxo:
+- Se a chave for informada, a aplicação consulta os dados da nota por chave.
+- Se enviar PDF sem chave, o sistema tenta extrair a chave do PDF.
+- Se a consulta por chave falhar e houver PDF, usa extração por IA no PDF como fallback.
+- Mercado, emissão, valor e itens passam a vir da nota fiscal (não de preenchimento manual).
+
 ## Geolocalização e mapa no celular
 
 Navegadores exigem **contexto seguro** para geolocalização:
@@ -157,7 +199,8 @@ O projeto já força `https` nas URLs quando `APP_URL` começa com `https://`.
 - `app/Filament/Widgets`: widgets e gráficos do dashboard
 - `app/Filament/Pages/Dashboard.php`: dashboard principal + mapa
 - `app/Services/InvoiceService.php`: processamento/enriquecimento da nota
-- `app/Services/Parsers/NfceMgParser.php`: parser de PDF NFC-e
+- `app/Services/Parsers/GeminiNfceParser.php`: extração estruturada por IA (Gemini)
+- `app/Services/Parsers/NfceMgParser.php`: parser regex legado (fallback opcional)
 - `database/seeders`: dados de demonstração
 
 ## Comandos úteis
@@ -176,7 +219,7 @@ npm run build
 ## Observações
 
 - Algumas integrações externas (consulta CNPJ/geocoding) dependem de conectividade e chave quando aplicável.
-- O parser NFC-e atual está orientado ao cenário de desenvolvimento e pode exigir ajustes para layouts reais diferentes de PDF.
+- A qualidade da extração depende da legibilidade do PDF e do modelo Gemini configurado.
 
 ## Licença
 

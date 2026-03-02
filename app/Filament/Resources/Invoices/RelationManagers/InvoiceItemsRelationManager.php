@@ -2,6 +2,7 @@
 
 namespace App\Filament\Resources\Invoices\RelationManagers;
 
+use App\Filament\Resources\Products\ProductResource;
 use Filament\Actions\AssociateAction;
 use Filament\Actions\BulkActionGroup;
 use Filament\Actions\CreateAction;
@@ -15,9 +16,12 @@ use Filament\Forms\Components\TextInput;
 use Filament\Infolists\Components\TextEntry;
 use Filament\Resources\RelationManagers\RelationManager;
 use Filament\Schemas\Schema;
+use Filament\Tables\Columns\ImageColumn;
 use Filament\Tables\Columns\TextColumn;
 use Filament\Tables\Filters\SelectFilter;
 use Filament\Tables\Table;
+use Filament\Support\Enums\IconPosition;
+use Illuminate\Support\HtmlString;
 
 class InvoiceItemsRelationManager extends RelationManager
 {
@@ -46,15 +50,24 @@ class InvoiceItemsRelationManager extends RelationManager
         return $table
         ->recordTitleAttribute('unit_price')
         ->columns([
-            // Nome do Mercado (via Invoice -> Market)
-            TextColumn::make('invoice.market.name')
-                ->label('Mercado')
-                ->sortable(),
+            ImageColumn::make('marketProduct.product.image')
+                ->label('Imagem')
+                ->defaultImageUrl('https://placehold.co/64x64/e5e7eb/6b7280?text=P')
+                ->imageSize(36)
+                ->square(),
 
-            // Data da Compra
-            TextColumn::make('invoice.issued_at')
-                ->label('Data')
-                ->dateTime('d/m/Y H:i:s')
+            // Nome do Produto (via InvoiceItem -> MarketProduct -> Product)
+            TextColumn::make('marketProduct.product.name')
+                ->label('Produto')
+                ->color('primary')
+                ->icon('heroicon-o-arrow-top-right-on-square')
+                ->iconPosition(IconPosition::After)
+                ->formatStateUsing(fn (?string $state): HtmlString => new HtmlString(
+                    '<span style="text-decoration: underline;">' . e($state ?? '') . '</span>'
+                ))
+                ->url(fn ($record): ?string => $record->marketProduct?->product
+                    ? ProductResource::getUrl('view', ['record' => $record->marketProduct->product])
+                    : null)
                 ->sortable(),
 
             // Quantidade (Ex: 0.815 kg para Batata)
@@ -78,6 +91,6 @@ class InvoiceItemsRelationManager extends RelationManager
             SelectFilter::make('market')
                 ->relationship('invoice.market', 'name')
         ])
-        ->defaultSort('invoice.issued_at', 'desc');
+        ->defaultSort('id', 'desc');
     }
 }

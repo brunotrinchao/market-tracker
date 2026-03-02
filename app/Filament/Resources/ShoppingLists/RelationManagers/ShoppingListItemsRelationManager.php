@@ -5,6 +5,7 @@ namespace App\Filament\Resources\ShoppingLists\RelationManagers;
 use App\Models\Address;
 use App\Models\InvoiceItem;
 use App\Models\Market;
+use App\Models\MarketProduct;
 use Filament\Actions\Action;
 use Filament\Forms\Components\Placeholder;
 use Filament\Forms\Components\Repeater;
@@ -247,10 +248,13 @@ class ShoppingListItemsRelationManager extends RelationManager
                                     ->relationship('product', 'name')
                                     ->searchable()
                                     ->preload()
+                                    ->live()
                                     ->disableOptionsWhenSelectedInSiblingRepeaterItems()
                                     ->required(),
                                 TextInput::make('quantity')
-                                    ->label('Quantidade')
+                                    ->label(fn (callable $get): string => $this->buildQuantityLabel(
+                                        $this->resolveProductUnitCode($get('product_id')),
+                                    ))
                                     ->numeric()
                                     ->default(1)
                                     ->minValue(0.001)
@@ -304,5 +308,49 @@ class ShoppingListItemsRelationManager extends RelationManager
                         return $query->having('best_market_id', '=', (int) $value);
                     }),
             ]);
+    }
+
+    private function resolveProductUnitCode(mixed $productId): ?string
+    {
+        if (! filled($productId)) {
+            return null;
+        }
+
+        return MarketProduct::query()
+            ->where('product_id', (int) $productId)
+            ->orderByDesc('updated_at')
+            ->value('unit');
+    }
+
+    private function buildQuantityLabel(?string $unitCode): string
+    {
+        if (! $unitCode) {
+            return 'Quantidade';
+        }
+
+        return 'Quantidade (' . $this->formatUnitLabel($unitCode) . ')';
+    }
+
+    private function formatUnitLabel(?string $unitCode): string
+    {
+        if (! $unitCode) {
+            return '-';
+        }
+
+        $unitCode = strtoupper(trim($unitCode));
+
+        $map = [
+            'KG' => 'Quilo (KG)',
+            'G' => 'Grama (G)',
+            'L' => 'Litro (L)',
+            'LT' => 'Litro (LT)',
+            'ML' => 'Mililitro (ML)',
+            'UN' => 'Unidade (UN)',
+            'CX' => 'Caixa (CX)',
+            'PT' => 'Pacote (PT)',
+            'FR' => 'Frasco (FR)',
+        ];
+
+        return $map[$unitCode] ?? $unitCode;
     }
 }

@@ -29,6 +29,10 @@ class ProductInfolist
                             ->label('Categoria')
                             ->badge()
                             ->placeholder('Nao informada'),
+                        TextEntry::make('original_name')
+                            ->label('Nome original')
+                            ->placeholder('-')
+                            ->columnSpanFull(),
                     ]),
                 Section::make('Indicadores')
                     ->columns(2)

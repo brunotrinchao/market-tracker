@@ -26,6 +26,11 @@ class ProductsTable
                     ->searchable()
                     ->sortable()
                     ->weight('semi-bold'),
+                TextColumn::make('original_name')
+                    ->label('Nome original')
+                    ->searchable()
+                    ->toggleable(isToggledHiddenByDefault: true)
+                    ->placeholder('-'),
                 TextColumn::make('category')
                     ->label('Categoria')
                     ->searchable()

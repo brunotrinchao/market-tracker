@@ -4,18 +4,15 @@ namespace App\Filament\Resources\Invoices\Pages;
 
 use App\Filament\Resources\Invoices\InvoiceResource;
 use App\Models\Invoice;
-use App\Models\Market;
 use App\Services\InvoiceService;
-use App\Services\Parsers\NfceMgParser;
+use App\Services\Parsers\GeminiNfceParser;
 use Filament\Actions\Action;
-use Filament\Forms\Components\DateTimePicker;
-use Filament\Forms\Components\FileUpload;
-use Filament\Forms\Components\Select;
+use Filament\Forms\Components\Placeholder;
 use Filament\Forms\Components\TextInput;
 use Filament\Notifications\Notification;
 use Filament\Resources\Pages\ListRecords;
+use Illuminate\Support\HtmlString;
 use Illuminate\Support\Facades\Log;
-use Illuminate\Support\Facades\Storage;
 
 class ListInvoices extends ListRecords
 {
@@ -26,82 +23,51 @@ class ListInvoices extends ListRecords
     protected function getHeaderActions(): array
     {
         return [
-            Action::make('createInvoice')
-                ->label('Nova nota')
-                ->icon('heroicon-o-plus')
-                ->modalHeading('Adicionar nota')
-                ->schema([
-                    Select::make('market_id')
-                        ->label('Mercado')
-                        ->options(fn () => Market::query()->orderBy('name')->pluck('name', 'id')->all())
-                        ->searchable()
-                        ->required(),
-                    DateTimePicker::make('issued_at')
-                        ->label('Data de emissao')
-                        ->seconds(false)
-                        ->required(),
-                    TextInput::make('total_amount')
-                        ->label('Valor total')
-                        ->prefix('R$')
-                        ->numeric()
-                        ->required(),
-                    TextInput::make('access_key')
-                        ->label('Chave de acesso')
-                        ->maxLength(255)
-                        ->unique(table: Invoice::class, column: 'access_key'),
-                ])
-                ->action(function (array $data): void {
-                    Invoice::query()->create($data);
-
-                    Notification::make()
-                        ->title('Nota criada com sucesso.')
-                        ->success()
-                        ->send();
-                }),
-            
-            // Nossa Action customizada para o PDF
-            Action::make('importPdf')
-                ->label('Importar Nota (PDF)')
+            Action::make('importInvoice')
+                ->label('Importar nota')
                 ->icon('heroicon-o-document-arrow-up')
                 ->color('success')
+                ->modalHeading('Importar nota fiscal')
+                ->modalSubmitAction(false)
+                ->modalCancelAction(false)
                 ->schema([
-                    FileUpload::make('invoice_pdf')
-                        ->label('Selecione o PDF da Nota')
-                        ->disk('public')
-                        ->acceptedFileTypes(['application/pdf'])
-                        ->directory('invoices-temp')
-                        ->maxSize(10240)
-                        ->helperText('Apenas PDF. Tamanho máximo: 10 MB.')
-                        ->required(),
+                    TextInput::make('qr_url')
+                        ->label('URL da NFC-e (teste manual)')
+                        ->helperText('Cole a URL da nota para testar sem usar a câmera.')
+                        ->required()
+                        ->extraInputAttributes(['id' => 'invoice-qr-url']),
+                    Placeholder::make('qr_scanner')
+                        ->hiddenLabel()
+                        ->content(new HtmlString(view('filament.resources.invoices.actions.qr-code-scanner')->render())),
                 ])
-                ->action(function (array $data, NfceMgParser $parser, InvoiceService $service) {
+                ->action(function (array $data, GeminiNfceParser $parser, InvoiceService $service) {
                     try {
-                        // 1. Extrai o caminho do arquivo
-                        $relativePath = $data['invoice_pdf'];
+                        $qrUrl = trim((string) ($data['qr_url'] ?? ''));
 
-                        if (! Storage::disk('public')->exists($relativePath)) {
-                            throw new \RuntimeException('Arquivo de nota não encontrado no disco público.');
+                        if ($qrUrl === '') {
+                            throw new \RuntimeException('Leia o QR Code da nota antes de importar.');
                         }
 
-                        $path = Storage::disk('public')->path($relativePath);
-                        
-                        // 2. Roda o Parser (Etapa 1 refinada)
-                        $parsedData = $parser->parse($path);
-                        
-                        // 3. Salva via Service (Enriquecimento + DB)
+                        $parsedData = $parser->parseFromQrUrl($qrUrl);
+                        $accessKey = $parsedData['invoice']['access_key'] ?? null;
+
+                        if ($accessKey && Invoice::query()->where('access_key', $accessKey)->exists()) {
+                            throw new \RuntimeException('Ja existe uma nota com esta chave de acesso.');
+                        }
+
                         $invoice = $service->storeInvoiceData($parsedData);
 
                         Notification::make()
-                            ->title('Nota importada com sucesso!')
+                            ->title('Nota importada com sucesso')
                             ->body("Mercado: {$invoice->market->name}")
                             ->success()
                             ->send();
 
                     } catch (\Exception $e) {
-                        Log::error('Erro ao importar nota via PDF.', [
+                        Log::error('Erro ao importar nota via QR Code.', [
                             'exception' => $e,
                             'message' => $e->getMessage(),
-                            'invoice_pdf' => $data['invoice_pdf'] ?? null,
+                            'qr_url' => $data['qr_url'] ?? null,
                         ]);
 
                         Notification::make()

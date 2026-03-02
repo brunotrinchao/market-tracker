@@ -59,18 +59,18 @@ class NfceMgParser
         // 2. Quantidade (Ex: Qtde total de ítens: 1.000)
         // 3. Unidade (Ex: UN: FR ou UN: kg)
         // 4. Valor Total (Ex: Valor total R$: R$ 9,80)
-        $pattern = '/(?P<name>[^(\n]+)\(Código:\s*(?P<code>\d+)\)\s*Qtde total de\s*ítens:\s*(?P<qty>[\d.,]+)\s*UN:\s*(?P<unit>[A-Z]{2,3})?\s*Valor total R\$:\s*(?:R\$\s*)?(?P<total>[\d.,]+)/is';
+        $pattern = '/(?P<name>[^(\n]+)\(Código:\s*(?P<code>\d+)\)\s*Qtde total de\s*ítens:\s*(?P<qty>[\d.,]+)\s*UN:\s*(?P<unit>[a-z]{1,5})?\s*Valor total R\$:\s*(?:R\$\s*)?(?P<total>[\d.,]+)/isu';
 
         if (preg_match_all($pattern, $text, $matches, PREG_SET_ORDER)) {
             foreach ($matches as $match) {
-                $totalPrice = (float) str_replace(',', '.', str_replace('.', '', $match['total']));
-                $quantity = (float) str_replace(',', '.', str_replace('.', '', $match['qty']));
+                $totalPrice = $this->parseBrazilianNumber($match['total']);
+                $quantity = $this->parseBrazilianNumber($match['qty']);
                 
                 $items[] = [
                     'name' => trim($match['name']), // Ex: "LIMP BH PERF 2L"
                     'code' => $match['code'], // Ex: "2634029"
                     'quantity' => $quantity, // Ex: 1.000 ou 0.982
-                    'unit' => trim($match['unit'] ?? 'UN'), // Ex: "FR", "KG"
+                    'unit' => strtoupper(trim($match['unit'] ?? 'UN')), // Ex: "FR", "KG"
                     'total_price' => $totalPrice, // Ex: 9.80
                     'unit_price' => $quantity > 0 ? round($totalPrice / $quantity, 2) : $totalPrice,
                     'date' => Carbon::createFromFormat('d/m/Y', '12/02/2026'), // Data extraída da nota
@@ -79,5 +79,16 @@ class NfceMgParser
         }
 
         return $items;
+    }
+
+    private function parseBrazilianNumber(string $value): float
+    {
+        $value = trim($value);
+
+        if (str_contains($value, ',')) {
+            return (float) str_replace(',', '.', str_replace('.', '', $value));
+        }
+
+        return (float) $value;
     }
 }

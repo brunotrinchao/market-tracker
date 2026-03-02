@@ -22,6 +22,11 @@ class ProductForm
                             ->required()
                             ->maxLength(255)
                             ->columnSpanFull(),
+                        TextInput::make('original_name')
+                            ->label('Nome original')
+                            ->placeholder('Ex: CAFE TORR 500G')
+                            ->maxLength(255)
+                            ->columnSpanFull(),
                         TextInput::make('category')
                             ->label('Categoria')
                             ->placeholder('Ex: Mercearia')
