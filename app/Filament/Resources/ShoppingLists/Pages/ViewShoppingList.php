@@ -86,7 +86,6 @@ HTML;
     {
         $items = $this->record->items()->with('product')->get();
         $groupedByMarket = [];
-
         foreach ($items as $item) {
             $product = $item->product;
             if (! $product) {
@@ -108,7 +107,7 @@ HTML;
             ];
 
             $groupedByMarket[$marketId]['items'][] = sprintf(
-                '| %s | %s | %s |',
+                '[ ] %s | %s | %s',
                 $product->name,
                 $this->formatQuantity((float) $item->quantity),
                 $subtotal !== null ? $this->formatMoney($subtotal) : '-'
@@ -125,8 +124,9 @@ HTML;
             $block[] = '## ' . $marketGroup['name'];
             $block[] = $marketGroup['address'];
             $block[] = '';
-            $block[] = '| Produto | Quantidade | Valor |';
-            $block[] = '|---|---:|---:|';
+            $block[] = $this->record->notes ? "Observações: {$this->record->notes}" : null;
+            $block[] = '';
+            $block[] = '';
             $block = array_merge($block, $marketGroup['items']);
 
             $blocks[] = implode(PHP_EOL, $block);
