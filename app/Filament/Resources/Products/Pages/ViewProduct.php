@@ -8,6 +8,8 @@ use Filament\Actions\DeleteAction;
 use Filament\Forms\Components\TextInput;
 use Filament\Notifications\Notification;
 use Filament\Resources\Pages\ViewRecord;
+use Filament\Schemas\Components\Grid;
+use Filament\Schemas\Schema;
 use Filament\Support\Enums\Width;
 use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Str;
@@ -79,9 +81,25 @@ class ViewProduct extends ViewRecord
 
     public function getHeaderWidgets(): array
     {
-        return [
-            \App\Filament\Widgets\ProductPriceChart::class,
-        ];
+        return [];
+    }
+
+    public function content(Schema $schema): Schema
+    {
+        return $schema
+            ->components([
+                Grid::make(2)
+                    ->schema([
+                        $this->getInfolistContentComponent()
+                            ->columnSpan(1),
+                        Grid::make(1)
+                            ->schema($this->getWidgetsSchemaComponents([
+                                \App\Filament\Widgets\ProductPriceChart::class,
+                            ]))
+                            ->columnSpan(1),
+                    ]),
+                $this->getRelationManagersContentComponent(),
+            ]);
     }
 
     public function searchGoogleImages(): void
@@ -164,7 +182,7 @@ class ViewProduct extends ViewRecord
                 ->title('Não foi possível buscar imagens no momento.')
                 ->body($exception->getMessage())
                 ->danger()
-                ->send();
+            ->send();
         }
     }
 

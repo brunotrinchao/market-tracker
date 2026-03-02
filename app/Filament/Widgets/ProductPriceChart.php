@@ -14,7 +14,9 @@ class ProductPriceChart extends ChartWidget
     // Propriedade para receber o produto da página
     public ?Product $record = null;
 
-    protected int|string|array $columnSpan = 'full';
+    protected int|string|array $columnSpan = 8;
+
+    protected ?string $maxHeight = '240px';
 
     protected function getData(): array
     {

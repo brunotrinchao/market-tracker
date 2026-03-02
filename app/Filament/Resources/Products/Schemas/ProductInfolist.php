@@ -13,7 +13,8 @@ class ProductInfolist
     {
         return $schema
             ->components([
-                Section::make('Resumo')
+                Section::make('Informacoes do produto')
+                    ->columnSpanFull()
                     ->columns(3)
                     ->components([
                         ImageEntry::make('image')
@@ -33,10 +34,6 @@ class ProductInfolist
                             ->label('Nome original')
                             ->placeholder('-')
                             ->columnSpanFull(),
-                    ]),
-                Section::make('Indicadores')
-                    ->columns(2)
-                    ->components([
                         TextEntry::make('market_products_count')
                             ->label('Mercados com este produto')
                             ->counts('marketProducts')
@@ -47,10 +44,6 @@ class ProductInfolist
                             ->counts('markets')
                             ->badge()
                             ->color('success'),
-                    ]),
-                Section::make('Controle')
-                    ->columns(2)
-                    ->components([
                         TextEntry::make('created_at')
                             ->label('Criado em')
                             ->dateTime('d/m/Y H:i:s')

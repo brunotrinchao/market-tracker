@@ -16,9 +16,6 @@ class MarketTrackerStatsOverview extends StatsOverviewWidget
         $totalProducts = Product::query()->count();
         $totalMarkets = Market::query()->count();
         $totalInvoices = Invoice::query()->count();
-        $monthTotal = (float) Invoice::query()
-            ->whereBetween('issued_at', [now()->startOfMonth(), now()->endOfMonth()])
-            ->sum('total_amount');
         $shoppingLists = ShoppingList::query()->count();
 
         return [
@@ -34,10 +31,6 @@ class MarketTrackerStatsOverview extends StatsOverviewWidget
                 ->description('Histórico consolidado')
                 ->descriptionIcon('heroicon-m-document-text')
                 ->color('success'),
-            Stat::make('Gasto no mês', 'R$ ' . number_format($monthTotal, 2, ',', '.'))
-                ->description('Soma das notas de ' . now()->translatedFormat('F/Y'))
-                ->descriptionIcon('heroicon-m-banknotes')
-                ->color('warning'),
             Stat::make('Listas de compra', (string) $shoppingLists)
                 ->description('Listas criadas para planejamento')
                 ->descriptionIcon('heroicon-m-clipboard-document-list')
@@ -45,4 +38,3 @@ class MarketTrackerStatsOverview extends StatsOverviewWidget
         ];
     }
 }
-

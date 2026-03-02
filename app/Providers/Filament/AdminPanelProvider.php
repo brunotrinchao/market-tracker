@@ -3,11 +3,9 @@
 namespace App\Providers\Filament;
 
 use App\Filament\Pages\Dashboard;
-use App\Filament\Widgets\BestPricesWidget;
-use App\Filament\Widgets\CategoryPriceChart;
-use App\Filament\Widgets\MarketSpendChart;
+use App\Filament\Widgets\InvoiceImportsTrendChart;
+use App\Filament\Widgets\ItemsByMarketChart;
 use App\Filament\Widgets\MarketTrackerStatsOverview;
-use App\Filament\Widgets\PriceTrendChart;
 use Filament\Http\Middleware\Authenticate;
 use Filament\Http\Middleware\AuthenticateSession;
 use Filament\Http\Middleware\DisableBladeIconComponents;
@@ -48,10 +46,8 @@ class AdminPanelProvider extends PanelProvider
             // ->discoverWidgets(in: app_path('Filament/Widgets'), for: 'App\Filament\Widgets')
             ->widgets([
                 MarketTrackerStatsOverview::class,
-                PriceTrendChart::class,
-                MarketSpendChart::class,
-                CategoryPriceChart::class,
-                BestPricesWidget::class,
+                InvoiceImportsTrendChart::class,
+                ItemsByMarketChart::class,
                 AccountWidget::class,
             ])
             ->middleware([
