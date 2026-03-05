@@ -8,6 +8,7 @@ use App\Services\Products\ProductCategoryClassifier;
 use Filament\Actions\Action;
 use Filament\Actions\DeleteAction;
 use Filament\Forms\Components\Select;
+use Filament\Forms\Components\TagsInput;
 use Filament\Forms\Components\TextInput;
 use Filament\Notifications\Notification;
 use Filament\Resources\Pages\ViewRecord;
@@ -69,6 +70,52 @@ class ViewProduct extends ViewRecord
                         ->options(fn (): array => Category::query()->orderBy('name')->pluck('name', 'id')->all())
                         ->searchable()
                         ->preload()
+                        ->createOptionForm([
+                            TextInput::make('name')
+                                ->label('Nome da categoria')
+                                ->required()
+                                ->maxLength(255),
+                            TagsInput::make('keywords')
+                                ->label('Palavras-chave')
+                                ->placeholder('Ex: arroz, feijao, cafe'),
+                        ])
+                        ->createOptionUsing(function (array $data): int {
+                            $name = trim((string) ($data['name'] ?? ''));
+                            $keywords = collect((array) ($data['keywords'] ?? []))
+                                ->map(fn (mixed $keyword): string => trim((string) $keyword))
+                                ->filter()
+                                ->values()
+                                ->all();
+
+                            $existingCategory = Category::query()
+                                ->where('name', $name)
+                                ->first();
+
+                            if ($existingCategory) {
+                                return (int) $existingCategory->getKey();
+                            }
+
+                            $baseSlug = Str::slug($name);
+                            if ($baseSlug === '') {
+                                $baseSlug = 'categoria';
+                            }
+
+                            $slug = $baseSlug;
+                            $suffix = 2;
+
+                            while (Category::query()->where('slug', $slug)->exists()) {
+                                $slug = $baseSlug . '-' . $suffix;
+                                $suffix++;
+                            }
+
+                            $category = Category::query()->create([
+                                'name' => $name,
+                                'slug' => $slug,
+                                'keywords' => $keywords,
+                            ]);
+
+                            return (int) $category->getKey();
+                        })
                         ->placeholder('Sem categoria'),
                     TextInput::make('image')
                         ->label('URL da imagem')
