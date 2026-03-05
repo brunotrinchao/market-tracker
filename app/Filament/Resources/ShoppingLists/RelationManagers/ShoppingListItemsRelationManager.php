@@ -6,6 +6,7 @@ use App\Models\Address;
 use App\Models\InvoiceItem;
 use App\Models\Market;
 use App\Models\MarketProduct;
+use App\Models\Product;
 use Filament\Actions\Action;
 use Filament\Forms\Components\Placeholder;
 use Filament\Forms\Components\Repeater;
@@ -38,12 +39,7 @@ class ShoppingListItemsRelationManager extends RelationManager
     {
         return $schema
             ->components([
-                Select::make('product_id')
-                    ->label('Produto')
-                    ->relationship('product', 'name')
-                    ->searchable()
-                    ->preload()
-                    ->required(),
+                $this->makeProductSelect(),
                 TextInput::make('quantity')
                     ->label('Quantidade')
                     ->numeric()
@@ -243,14 +239,9 @@ class ShoppingListItemsRelationManager extends RelationManager
                             ->minItems(1)
                             ->required()
                             ->schema([
-                                Select::make('product_id')
-                                    ->label('Produto')
-                                    ->relationship('product', 'name')
-                                    ->searchable()
-                                    ->preload()
+                                $this->makeProductSelect()
                                     ->live()
-                                    ->disableOptionsWhenSelectedInSiblingRepeaterItems()
-                                    ->required(),
+                                    ->disableOptionsWhenSelectedInSiblingRepeaterItems(),
                                 TextInput::make('quantity')
                                     ->label(fn (callable $get): string => $this->buildQuantityLabel(
                                         $this->resolveProductUnitCode($get('product_id')),
@@ -308,6 +299,36 @@ class ShoppingListItemsRelationManager extends RelationManager
                         return $query->having('best_market_id', '=', (int) $value);
                     }),
             ]);
+    }
+
+    private function makeProductSelect(): Select
+    {
+        return Select::make('product_id')
+            ->label('Produto')
+            ->relationship('product', 'name')
+            ->searchable()
+            ->preload()
+            ->required()
+            ->createOptionForm([
+                TextInput::make('name')
+                    ->label('Nome do produto')
+                    ->required()
+                    ->maxLength(255),
+                TextInput::make('original_name')
+                    ->label('Nome original (opcional)')
+                    ->maxLength(255),
+            ])
+            ->createOptionUsing(function (array $data): int {
+                $name = trim((string) ($data['name'] ?? ''));
+                $originalName = trim((string) ($data['original_name'] ?? ''));
+
+                $product = Product::query()->create([
+                    'name' => $name,
+                    'original_name' => $originalName !== '' ? $originalName : $name,
+                ]);
+
+                return (int) $product->getKey();
+            });
     }
 
     private function resolveProductUnitCode(mixed $productId): ?string

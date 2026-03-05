@@ -2,6 +2,7 @@
 
 namespace App\Services\Parsers;
 
+use App\Models\Category;
 use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\Http;
@@ -13,9 +14,19 @@ class GeminiNfceParser
     public function parse(string $pdfPath): array
     {
         $text = $this->extractPdfText($pdfPath);
-        $payload = $this->extractPayloadFromSource($text, null);
+        $preparedText = $this->prepareSourceText($text);
+        $aiMeta = [];
 
-        return $this->normalizePayload($payload);
+        $payload = $this->extractPayloadUsingCloudflareAi($preparedText, null, $aiMeta)
+            ?? $this->extractPayloadFromSource($text, null);
+
+        $normalized = $this->normalizePayload($payload);
+
+        if ($aiMeta !== []) {
+            $normalized['_ai'] = $aiMeta;
+        }
+
+        return $normalized;
     }
 
     public function extractAccessKeyFromPdf(string $pdfPath): ?string
@@ -42,14 +53,239 @@ class GeminiNfceParser
 
         $responseBody = $this->fetchNfceResponseByQrUrl($qrUrl);
         $cleanText = $this->prepareSourceText($responseBody);
-        $payload = $this->extractPayloadFromSource($responseBody, $qrUrl);
-        
+        $aiMeta = [];
+
+        $payload = $this->extractPayloadUsingCloudflareAi($cleanText, $qrUrl, $aiMeta)
+            ?? $this->extractPayloadFromSource($responseBody, $qrUrl);
+
         $normalized = $this->normalizePayload($payload);
         $normalized['invoice']['access_key'] ??= $this->extractAccessKeyFromText($qrUrl . PHP_EOL . $cleanText);
+        if ($aiMeta !== []) {
+            $normalized['_ai'] = $aiMeta;
+        }
 
         Cache::put($cacheKey, $normalized, now()->addDays(7));
 
         return $normalized;
+    }
+
+    protected function extractPayloadUsingCloudflareAi(string $sourceText, ?string $qrUrl, array &$aiMeta = []): ?array
+    {
+        $accountId = trim((string) config('services.cloudflare_ai.account_id'));
+        $apiToken = trim((string) config('services.cloudflare_ai.api_token'));
+        $model = trim((string) config('services.cloudflare_ai.model', '@cf/meta/llama-3-8b-instruct'));
+        $timeout = (int) config('services.cloudflare_ai.timeout', 90);
+        $maxRetries = (int) config('services.cloudflare_ai.max_retries', 2);
+        $initialBackoffMs = (int) config('services.cloudflare_ai.initial_backoff_ms', 1200);
+        $maxSourceChars = (int) config('services.cloudflare_ai.max_source_chars', 12000);
+
+        if ($accountId === '' || $apiToken === '') {
+            return null;
+        }
+
+        $sourceText = trim($sourceText);
+        if ($sourceText === '') {
+            return null;
+        }
+
+        if (mb_strlen($sourceText) > $maxSourceChars) {
+            $sourceText = mb_substr($sourceText, 0, $maxSourceChars);
+        }
+
+        $systemPrompt = $this->buildCloudflareSystemPrompt();
+        $userPrompt = $this->buildCloudflareUserPrompt($sourceText, $qrUrl);
+        $endpoint = sprintf('https://api.cloudflare.com/client/v4/accounts/%s/ai/run/%s', $accountId, $model);
+
+        $attempt = 0;
+        $lastError = null;
+
+        while ($attempt < max(1, $maxRetries)) {
+            $attempt++;
+
+            try {
+                $response = Http::timeout($timeout)
+                    ->withToken($apiToken)
+                    ->acceptJson()
+                    ->post($endpoint, [
+                        'messages' => [
+                            [
+                                'role' => 'system',
+                                'content' => $systemPrompt,
+                            ],
+                            [
+                                'role' => 'user',
+                                'content' => $userPrompt,
+                            ],
+                        ],
+                        'temperature' => 0,
+                    ]);
+
+                if (! $response->successful()) {
+                    $lastError = new RuntimeException('Cloudflare AI retornou HTTP ' . $response->status());
+                    usleep($initialBackoffMs * 1000);
+                    continue;
+                }
+
+                $responsePayload = $response->json();
+                if (! is_array($responsePayload)) {
+                    $lastError = new RuntimeException('Cloudflare AI retornou payload invalido.');
+                    usleep($initialBackoffMs * 1000);
+                    continue;
+                }
+
+                if (($responsePayload['success'] ?? true) !== true) {
+                    $errors = is_array($responsePayload['errors'] ?? null)
+                        ? json_encode($responsePayload['errors'], JSON_UNESCAPED_UNICODE)
+                        : 'erro desconhecido';
+                    $lastError = new RuntimeException('Cloudflare AI falhou: ' . $errors);
+                    usleep($initialBackoffMs * 1000);
+                    continue;
+                }
+
+                $result = $responsePayload['result'] ?? [];
+                $rawOutput = $this->extractModelRawOutput($result);
+                if ($rawOutput === null) {
+                    $lastError = new RuntimeException('Cloudflare AI nao retornou texto da inferencia.');
+                    usleep($initialBackoffMs * 1000);
+                    continue;
+                }
+
+                $decoded = $this->decodeJsonObjectFromText($rawOutput);
+                if (! is_array($decoded)) {
+                    $lastError = new RuntimeException('Cloudflare AI retornou resposta sem JSON valido.');
+                    usleep($initialBackoffMs * 1000);
+                    continue;
+                }
+
+                $aiMeta = [
+                    'provider' => 'cloudflare',
+                    'model' => $model,
+                    'payload' => $result,
+                    'raw_response' => $rawOutput,
+                ];
+
+                return $decoded;
+            } catch (\Throwable $e) {
+                $lastError = $e;
+                usleep($initialBackoffMs * 1000);
+            }
+        }
+
+        if ((bool) config('services.cloudflare_ai.fallback_to_regex', true) !== true && $lastError !== null) {
+            throw new RuntimeException($lastError->getMessage(), previous: $lastError);
+        }
+
+        return null;
+    }
+
+    protected function buildCloudflareSystemPrompt(): string
+    {
+        return <<<'PROMPT'
+Voce e um extrator de dados de NFC-e (nota fiscal de consumidor eletronica) do Brasil.
+Sua tarefa e ler o texto bruto da nota e devolver APENAS um JSON valido, sem markdown e sem texto extra.
+Regras:
+1) Extraia somente o que estiver no texto. Nunca invente.
+2) Campos desconhecidos devem ser null (ou array vazio em items).
+3) Valores monetarios e quantidades devem ser numericos (ponto decimal), sem "R$".
+4) CNPJ deve conter somente digitos.
+5) zip_code deve conter somente digitos (8 quando possivel).
+6) invoice.access_key deve conter somente digitos e ter 44 quando encontrado.
+7) unit deve ser somente um destes valores em maiusculo: KG, UN ou L.
+8) Se nao houver itens confiaveis, retorne items [].
+9) Retorne no schema exato abaixo:
+{
+  "market": {
+    "name": "string|null",
+    "cnpj": "string|null",
+    "zip_code": "string|null",
+    "address_details": {
+      "street": "string|null",
+      "number": "string|null",
+      "neighborhood": "string|null",
+      "city": "string|null",
+      "state": "string|null"
+    }
+  },
+  "invoice": {
+    "access_key": "string|null",
+    "issued_at": "string|null",
+    "total_amount": "number|null"
+  },
+  "items": [
+    {
+      "name": "string",
+      "original_name": "string|null",
+      "code": "string|null",
+      "quantity": "number|null",
+      "unit": "string|null",
+      "category_suggestion": "string|null",
+      "unit_price": "number|null",
+      "total_price": "number|null"
+    }
+  ]
+}
+PROMPT;
+    }
+
+    protected function buildCloudflareUserPrompt(string $sourceText, ?string $qrUrl): string
+    {
+        $qrSection = $qrUrl ? ("URL do QR Code: " . $qrUrl . "\n\n") : '';
+        $categories = $this->availableCategoryNamesForPrompt();
+        $categoriesSection = $categories !== []
+            ? ("Categorias existentes no sistema (use uma delas em items[].category_suggestion quando fizer sentido):\n- " . implode("\n- ", $categories) . "\n\n")
+            : '';
+
+        return $qrSection
+            . $categoriesSection
+            . "Texto bruto da nota (OCR/HTML limpo):\n"
+            . $sourceText
+            . "\n\nResponda apenas com JSON valido no schema solicitado.";
+    }
+
+    protected function availableCategoryNamesForPrompt(): array
+    {
+        return Category::query()
+            ->orderBy('name')
+            ->pluck('name')
+            ->map(fn (string $name): string => trim($name))
+            ->filter(fn (string $name): bool => $name !== '')
+            ->unique()
+            ->values()
+            ->all();
+    }
+
+    protected function extractModelRawOutput(array $result): ?string
+    {
+        $candidates = [
+            $result['response'] ?? null,
+            data_get($result, 'output_text'),
+            data_get($result, 'text'),
+        ];
+
+        foreach ($candidates as $candidate) {
+            if (is_string($candidate) && trim($candidate) !== '') {
+                return trim($candidate);
+            }
+        }
+
+        return null;
+    }
+
+    protected function decodeJsonObjectFromText(string $text): ?array
+    {
+        $decoded = json_decode($text, true);
+        if (is_array($decoded)) {
+            return $decoded;
+        }
+
+        if (preg_match('/\{.*\}/s', $text, $match)) {
+            $decoded = json_decode($match[0], true);
+            if (is_array($decoded)) {
+                return $decoded;
+            }
+        }
+
+        return null;
     }
 
     protected function extractPdfText(string $pdfPath): string
@@ -592,6 +828,7 @@ class GeminiNfceParser
             'code' => $this->nonEmptyString($item['code'] ?? null) ?? ('NFCE-' . ($index + 1)),
             'quantity' => $quantity,
             'unit' => $this->normalizeUnit($item['unit'] ?? null),
+            'category_suggestion' => $this->nonEmptyString($item['category_suggestion'] ?? null),
             'total_price' => $totalPrice,
             'unit_price' => $unitPrice,
             'date' => now(),
@@ -676,8 +913,14 @@ class GeminiNfceParser
     protected function normalizeUnit(mixed $value): string
     {
         $value = strtoupper(trim((string) $value));
+        $value = preg_replace('/\s+/', '', $value) ?? $value;
 
-        return $value !== '' ? $value : 'UN';
+        return match ($value) {
+            'KG', 'KGS', 'KILO', 'KILOGRAMA', 'KILOGRAMAS', 'QUILO', 'QUILOGRAMA', 'QUILOGRAMAS' => 'KG',
+            'L', 'LT', 'LTS', 'LITRO', 'LITROS' => 'L',
+            'UN', 'UND', 'UNID', 'UNIDADE', 'UNIDADES', 'PCT', 'PC', 'PCA', 'PEC', 'PECA', 'PECAS' => 'UN',
+            default => 'UN',
+        };
     }
 
     protected function nonEmptyString(mixed $value): ?string

@@ -32,22 +32,39 @@ class MarketProductsRelationManager extends RelationManager
                 TextInput::make('external_code')
                     ->label('Codigo externo')
                     ->required(),
-                TextInput::make('unit')
+                Select::make('unit')
                     ->label('Unidade')
+                    ->options([
+                        'KG' => 'KG (quilo)',
+                        'UN' => 'UN (unidade)',
+                        'L' => 'L (litro)',
+                    ])
+                    ->native(false)
                     ->required(),
             ]);
     }
 
     public function table(Table $table): Table
     {
+        $normalizedUnitPriceSql = "CASE
+            WHEN invoice_items.quantity > 0 AND invoice_items.total_price IS NOT NULL
+                THEN invoice_items.total_price / invoice_items.quantity
+            ELSE invoice_items.unit_price
+        END";
+
         return $table
-            ->modifyQueryUsing(function (Builder $query): void {
+            ->modifyQueryUsing(function (Builder $query) use ($normalizedUnitPriceSql): void {
                 $query
                     ->withMin('invoiceItems', 'unit_price')
                     ->withMax('invoiceItems', 'unit_price')
                     ->addSelect([
                         'latest_price' => InvoiceItem::query()
                             ->select('unit_price')
+                            ->whereColumn('market_product_id', 'market_products.id')
+                            ->orderByDesc('created_at')
+                            ->limit(1),
+                        'latest_price_per_kg' => InvoiceItem::query()
+                            ->selectRaw($normalizedUnitPriceSql)
                             ->whereColumn('market_product_id', 'market_products.id')
                             ->orderByDesc('created_at')
                             ->limit(1),
@@ -73,6 +90,8 @@ class MarketProductsRelationManager extends RelationManager
                                         ->orderBy('invoices.issued_at')
                                         ->get([
                                             'invoice_items.unit_price',
+                                            'invoice_items.quantity',
+                                            'invoice_items.total_price',
                                             'invoices.issued_at',
                                         ]),
                                 ],
@@ -93,6 +112,15 @@ class MarketProductsRelationManager extends RelationManager
                 TextColumn::make('latest_price')
                     ->label('Ultimo preco')
                     ->money('BRL'),
+                TextColumn::make('latest_price_per_kg')
+                    ->label('Ultimo preco/kg')
+                    ->formatStateUsing(function ($state, $record): string {
+                        if (! $this->isKgUnit($record->unit ?? null) || $state === null) {
+                            return '-';
+                        }
+
+                        return 'R$ ' . number_format((float) $state, 2, ',', '.') . '/kg';
+                    }),
                 TextColumn::make('created_at')
                     ->dateTime('d/m/Y H:i:s')
                     ->sortable()
@@ -101,5 +129,12 @@ class MarketProductsRelationManager extends RelationManager
             ->headerActions([
                 CreateAction::make(),
             ]);
+    }
+
+    private function isKgUnit(?string $unit): bool
+    {
+        $normalized = strtoupper(trim((string) $unit));
+
+        return in_array($normalized, ['KG', 'KILO', 'QUILO'], true);
     }
 }

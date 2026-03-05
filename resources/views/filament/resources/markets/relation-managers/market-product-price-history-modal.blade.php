@@ -1,6 +1,21 @@
 @php
-    $prices = $history->pluck('unit_price')->map(fn ($value) => (float) $value)->values();
+    $isKgUnit = in_array(strtoupper(trim((string) ($marketProduct->unit ?? ''))), ['KG', 'KILO', 'QUILO'], true);
+    $prices = $history
+        ->map(function ($row) use ($isKgUnit) {
+            $quantity = (float) ($row->quantity ?? 0);
+            $unitPrice = (float) ($row->unit_price ?? 0);
+            $totalPrice = (float) ($row->total_price ?? 0);
+
+            if ($isKgUnit && $quantity > 0 && $totalPrice > 0) {
+                return $totalPrice / $quantity;
+            }
+
+            return $unitPrice;
+        })
+        ->values();
     $labels = $history->pluck('issued_at')->map(fn ($date) => \Illuminate\Support\Carbon::parse($date)->format('d/m/Y H:i:s'))->values();
+    $priceLabel = $isKgUnit ? 'Preco/kg' : 'Preco';
+    $formattedSuffix = $isKgUnit ? '/kg' : '';
 
     $minPrice = $prices->min();
     $maxPrice = $prices->max();
@@ -23,15 +38,15 @@
         <div style="display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 12px; font-size: 12px;">
             <div style="border: 1px solid #e5e7eb; background: #f9fafb; border-radius: 10px; padding: 12px;">
                 <div style="color: #6b7280;">Menor</div>
-                <div style="font-size: 16px; font-weight: 600;">R$ {{ number_format($minPrice, 2, ',', '.') }}</div>
+                <div style="font-size: 16px; font-weight: 600;">R$ {{ number_format($minPrice, 2, ',', '.') }}{{ $formattedSuffix }}</div>
             </div>
             <div style="border: 1px solid #e5e7eb; background: #f9fafb; border-radius: 10px; padding: 12px;">
                 <div style="color: #6b7280;">Maior</div>
-                <div style="font-size: 16px; font-weight: 600;">R$ {{ number_format($maxPrice, 2, ',', '.') }}</div>
+                <div style="font-size: 16px; font-weight: 600;">R$ {{ number_format($maxPrice, 2, ',', '.') }}{{ $formattedSuffix }}</div>
             </div>
             <div style="border: 1px solid #e5e7eb; background: #f9fafb; border-radius: 10px; padding: 12px;">
                 <div style="color: #6b7280;">Ultimo</div>
-                <div style="font-size: 16px; font-weight: 600;">R$ {{ number_format($latestPrice, 2, ',', '.') }}</div>
+                <div style="font-size: 16px; font-weight: 600;">R$ {{ number_format($latestPrice, 2, ',', '.') }}{{ $formattedSuffix }}</div>
                 <div style="margin-top: 4px; font-size: 11px; color: {{ $variationColor }};">
                     {{ $variation >= 0 ? '+' : '' }}{{ number_format($variation, 2, ',', '.') }}%
                 </div>
@@ -43,6 +58,8 @@
                 chartId: @js($chartId),
                 labels: @js($labels->all()),
                 values: @js($prices->all()),
+                priceLabel: @js($priceLabel),
+                isKgUnit: @js($isKgUnit),
                 async initChart() {
                     const ensureChartJs = async () => {
                         if (typeof window.Chart !== 'undefined') {
@@ -139,7 +156,7 @@
                                             const value = context && context.parsed && typeof context.parsed.y !== 'undefined'
                                                 ? context.parsed.y
                                                 : 0;
-                                            return `Preco: ${currency.format(value)}`;
+                                            return `${this.priceLabel}: ${currency.format(value)}${this.isKgUnit ? '/kg' : ''}`;
                                         },
                                     },
                                 },

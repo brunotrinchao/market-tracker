@@ -35,6 +35,34 @@ class ProductCategoryClassifier
         return (int) $bestMatch['id'];
     }
 
+    public function inferCategoryIdFromSuggestion(?string $categorySuggestion): ?int
+    {
+        $normalizedSuggestion = $this->normalizeText($categorySuggestion);
+
+        if ($normalizedSuggestion === '') {
+            return null;
+        }
+
+        $match = $this->categories()
+            ->map(function (Category $category): array {
+                return [
+                    'id' => (int) $category->id,
+                    'name' => $this->normalizeText((string) $category->name),
+                    'slug' => $this->normalizeText((string) Str::slug((string) $category->name)),
+                ];
+            })
+            ->first(function (array $candidate) use ($normalizedSuggestion): bool {
+                if (($candidate['name'] ?? '') === $normalizedSuggestion || ($candidate['slug'] ?? '') === $normalizedSuggestion) {
+                    return true;
+                }
+
+                return str_contains($normalizedSuggestion, (string) ($candidate['name'] ?? ''))
+                    || str_contains((string) ($candidate['name'] ?? ''), $normalizedSuggestion);
+            });
+
+        return is_array($match) ? (int) ($match['id'] ?? 0) ?: null : null;
+    }
+
     private function categories(): Collection
     {
         return Category::query()
@@ -90,4 +118,3 @@ class ProductCategoryClassifier
         return trim(preg_replace('/\s+/', ' ', $value) ?? '');
     }
 }
-

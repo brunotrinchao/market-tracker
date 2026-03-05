@@ -216,6 +216,9 @@ class InvoiceService
         $normalizedName = $names['normalized'];
         $originalName = $names['original'];
         $unitCode = $this->normalizeUnitCode($itemData['unit'] ?? null);
+        $suggestedCategoryId = $this->productCategoryClassifier->inferCategoryIdFromSuggestion(
+            $itemData['category_suggestion'] ?? null
+        );
 
         // A. Tenta localizar um vínculo existente para este mercado pelo código interno
         // Ex: Código 2634029 para "LIMP BH PERF 2L"
@@ -235,7 +238,8 @@ class InvoiceService
             }
 
             if (! $product->category_id) {
-                $inferredCategoryId = $this->productCategoryClassifier->inferCategoryId($product->name);
+                $inferredCategoryId = $suggestedCategoryId
+                    ?? $this->productCategoryClassifier->inferCategoryId($product->name);
 
                 if ($inferredCategoryId) {
                     $product->update(['category_id' => $inferredCategoryId]);
@@ -247,13 +251,21 @@ class InvoiceService
                 'market_id' => $market->id,
                 'product_id' => $product->id,
                 'external_code' => $itemData['code'],
-                'unit' => $unitCode, // FR, KG, UN, etc
+                'unit' => $unitCode, // KG, UN, L
             ]);
         } elseif ($unitCode && $marketProduct->unit !== $unitCode) {
             // Mantém a unidade alinhada com a última nota fiscal importada.
             $marketProduct->update([
                 'unit' => $unitCode,
             ]);
+        }
+
+        if ($suggestedCategoryId) {
+            $productFromLink = $marketProduct->product()->first();
+
+            if ($productFromLink && ! $productFromLink->category_id) {
+                $productFromLink->update(['category_id' => $suggestedCategoryId]);
+            }
         }
 
         // Registra o item na nota (O histórico de preço)
@@ -269,8 +281,14 @@ class InvoiceService
     private function normalizeUnitCode(?string $unit): string
     {
         $unit = strtoupper(trim((string) $unit));
+        $unit = preg_replace('/\s+/', '', $unit) ?? $unit;
 
-        return $unit !== '' ? $unit : 'UN';
+        return match ($unit) {
+            'KG', 'KGS', 'KILO', 'KILOGRAMA', 'KILOGRAMAS', 'QUILO', 'QUILOGRAMA', 'QUILOGRAMAS' => 'KG',
+            'L', 'LT', 'LTS', 'LITRO', 'LITROS' => 'L',
+            'UN', 'UND', 'UNID', 'UNIDADE', 'UNIDADES', 'PCT', 'PC', 'PCA', 'PEC', 'PECA', 'PECAS' => 'UN',
+            default => 'UN',
+        };
     }
 
     private function normalizeRawData(array $rawData): array

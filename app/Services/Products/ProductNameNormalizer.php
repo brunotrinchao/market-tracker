@@ -92,6 +92,10 @@ class ProductNameNormalizer
         'BOMB' => 'BOMBOM',
         'BAL' => 'BALA',
         'GOMA' => 'GOMA',
+        'BCOS' => 'BRANCO',
+        'SEMEN' => 'SEMENTE',
+        'COEN' => 'COENTRO',
+        'MOL' => 'MOLHO',
 
         // Limpeza e casa
         'DET' => 'DETERGENTE',

@@ -53,6 +53,17 @@ return [
         'initial_backoff_ms' => (int) env('OPENAI_INITIAL_BACKOFF_MS', 1200),
     ],
 
+    'cloudflare_ai' => [
+        'account_id' => env('CLOUDFLARE_AI_ACCOUNT_ID'),
+        'api_token' => env('CLOUDFLARE_AI_API_TOKEN'),
+        'model' => env('CLOUDFLARE_AI_MODEL', '@cf/meta/llama-3-8b-instruct'),
+        'timeout' => (int) env('CLOUDFLARE_AI_TIMEOUT', 90),
+        'max_retries' => (int) env('CLOUDFLARE_AI_MAX_RETRIES', 2),
+        'initial_backoff_ms' => (int) env('CLOUDFLARE_AI_INITIAL_BACKOFF_MS', 1200),
+        'max_source_chars' => (int) env('CLOUDFLARE_AI_MAX_SOURCE_CHARS', 12000),
+        'fallback_to_regex' => (bool) env('CLOUDFLARE_AI_FALLBACK_REGEX', true),
+    ],
+
     'nfce_lookup' => [
         'url_template' => env('NFCE_LOOKUP_URL_TEMPLATE'),
         'token' => env('NFCE_LOOKUP_TOKEN'),

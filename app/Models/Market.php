@@ -12,6 +12,13 @@ class Market extends Model
         'name',
         'cnpj',
         'logo',
+        'access_key',
+        'issued_at',
+        'total_amount',
+        'ai_provider',
+        'ai_model',
+        'ai_payload',
+        'ai_raw_response',
     ];
 
     public function addresses(): HasMany

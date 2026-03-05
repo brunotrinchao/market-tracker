@@ -25,13 +25,20 @@ class ProductPriceChart extends ChartWidget
         }
 
         $productId = $this->record->id;
+        $normalizedPriceSql = "AVG(CASE
+            WHEN UPPER(TRIM(COALESCE(market_products.unit, ''))) IN ('KG', 'KILO', 'QUILO')
+                AND invoice_items.quantity > 0
+                AND invoice_items.total_price IS NOT NULL
+            THEN invoice_items.total_price / invoice_items.quantity
+            ELSE invoice_items.unit_price
+        END) as avg_price";
 
         // Série geral (média diária entre todos os mercados)
         $generalRows = InvoiceItem::query()
             ->join('market_products', 'invoice_items.market_product_id', '=', 'market_products.id')
             ->join('invoices', 'invoice_items.invoice_id', '=', 'invoices.id')
             ->where('market_products.product_id', $productId)
-            ->selectRaw('DATE(invoices.issued_at) as issued_date, AVG(invoice_items.unit_price) as avg_price')
+            ->selectRaw('DATE(invoices.issued_at) as issued_date, ' . $normalizedPriceSql)
             ->groupBy('issued_date')
             ->orderBy('issued_date')
             ->get();
@@ -42,7 +49,7 @@ class ProductPriceChart extends ChartWidget
             ->join('markets', 'market_products.market_id', '=', 'markets.id')
             ->join('invoices', 'invoice_items.invoice_id', '=', 'invoices.id')
             ->where('market_products.product_id', $productId)
-            ->selectRaw('DATE(invoices.issued_at) as issued_date, markets.name as market_name, AVG(invoice_items.unit_price) as avg_price')
+            ->selectRaw('DATE(invoices.issued_at) as issued_date, markets.name as market_name, ' . $normalizedPriceSql)
             ->groupBy('issued_date', 'market_name')
             ->orderBy('issued_date')
             ->get();

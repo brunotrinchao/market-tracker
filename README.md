@@ -31,7 +31,7 @@ A aplicação foi construída com Laravel + Filament e foco em uso administrativ
 - Vite + Tailwind CSS
 - Banco: SQLite (padrão) ou MySQL/PostgreSQL
 - Parser de PDF: `smalot/pdfparser`
-- IA de extração: Google Gemini API
+- IA de extração: Cloudflare Workers AI (com fallback regex)
 
 ## Requisitos
 
@@ -146,19 +146,23 @@ Ou configure no `php.ini`:
   - valor total
   - itens/produtos
 
-## Configuração da IA (Gemini)
+## Configuração da IA (Cloudflare)
 
 Defina no `.env`:
 
 ```env
-GEMINI_API_KEY=sua-chave
-GEMINI_MODEL=gemini-2.0-flash
-GEMINI_TIMEOUT=90
-GEMINI_FALLBACK_REGEX=false
+CLOUDFLARE_AI_ACCOUNT_ID=seu-account-id
+CLOUDFLARE_AI_API_TOKEN=seu-token
+CLOUDFLARE_AI_MODEL=@cf/meta/llama-3-8b-instruct
+CLOUDFLARE_AI_TIMEOUT=90
+CLOUDFLARE_AI_MAX_RETRIES=2
+CLOUDFLARE_AI_INITIAL_BACKOFF_MS=1200
+CLOUDFLARE_AI_MAX_SOURCE_CHARS=12000
+CLOUDFLARE_AI_FALLBACK_REGEX=true
 ```
 
-- `GEMINI_FALLBACK_REGEX=true` ativa fallback para parser regex legado se a IA falhar.
-- Sem `GEMINI_API_KEY`, a importação por IA nao funciona.
+- `CLOUDFLARE_AI_FALLBACK_REGEX=true` ativa fallback para parser regex legado se a IA falhar.
+- Sem `CLOUDFLARE_AI_ACCOUNT_ID` e `CLOUDFLARE_AI_API_TOKEN`, o fluxo usa somente parser regex.
 
 ## Consulta de nota pela chave de acesso
 
@@ -199,7 +203,7 @@ O projeto já força `https` nas URLs quando `APP_URL` começa com `https://`.
 - `app/Filament/Widgets`: widgets e gráficos do dashboard
 - `app/Filament/Pages/Dashboard.php`: dashboard principal + mapa
 - `app/Services/InvoiceService.php`: processamento/enriquecimento da nota
-- `app/Services/Parsers/GeminiNfceParser.php`: extração estruturada por IA (Gemini)
+- `app/Services/Parsers/GeminiNfceParser.php`: extração estruturada por IA (Cloudflare + fallback)
 - `app/Services/Parsers/NfceMgParser.php`: parser regex legado (fallback opcional)
 - `database/seeders`: dados de demonstração
 
@@ -219,7 +223,7 @@ npm run build
 ## Observações
 
 - Algumas integrações externas (consulta CNPJ/geocoding) dependem de conectividade e chave quando aplicável.
-- A qualidade da extração depende da legibilidade do PDF e do modelo Gemini configurado.
+- A qualidade da extração depende da legibilidade do PDF/retorno da URL da NFC-e e do modelo de IA configurado.
 
 ## Licença
 

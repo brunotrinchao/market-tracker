@@ -1,5 +1,7 @@
 <div
     x-data="{
+        importEndpoint: '{{ route('invoices.import.from-qr') }}',
+        csrfToken: '{{ csrf_token() }}',
         status: 'Abrindo camera...',
         qrValue: '',
         scanner: null,
@@ -64,19 +66,129 @@
             input.dispatchEvent(new Event('change', { bubbles: true }))
             input.dispatchEvent(new Event('blur', { bubbles: true }))
         },
-        submitImportForm() {
-            const form = this.$refs.reader ? this.$refs.reader.closest('form') : null
-            if (!form) {
-                this.status = 'QR lido, mas nao foi possivel enviar o formulario automaticamente.'
+        showProcessingOverlay() {
+            const existing = document.getElementById('invoice-import-processing-overlay')
+            if (existing) {
                 return
             }
 
-            if (typeof form.requestSubmit === 'function') {
-                form.requestSubmit()
+            const overlay = document.createElement('div')
+            overlay.id = 'invoice-import-processing-overlay'
+            overlay.style.position = 'fixed'
+            overlay.style.inset = '0'
+            overlay.style.zIndex = '9999'
+            overlay.style.background = 'rgba(17, 24, 39, 0.58)'
+            overlay.style.display = 'flex'
+            overlay.style.alignItems = 'center'
+            overlay.style.justifyContent = 'center'
+
+            const box = document.createElement('div')
+            box.style.minWidth = '280px'
+            box.style.maxWidth = '90vw'
+            box.style.background = '#fff'
+            box.style.borderRadius = '12px'
+            box.style.padding = '20px 24px'
+            box.style.boxShadow = '0 10px 25px rgba(0,0,0,.2)'
+            box.style.display = 'grid'
+            box.style.gap = '10px'
+
+            const row = document.createElement('div')
+            row.style.display = 'flex'
+            row.style.alignItems = 'center'
+            row.style.gap = '10px'
+
+            const spinner = document.createElement('span')
+            spinner.style.width = '18px'
+            spinner.style.height = '18px'
+            spinner.style.border = '2px solid #d1d5db'
+            spinner.style.borderTopColor = '#2563eb'
+            spinner.style.borderRadius = '9999px'
+            spinner.style.display = 'inline-block'
+            spinner.style.animation = 'invoice-import-spin .8s linear infinite'
+
+            const title = document.createElement('strong')
+            title.style.fontSize = '15px'
+            title.style.color = '#111827'
+            title.textContent = 'Processando nota fiscal...'
+
+            const desc = document.createElement('span')
+            desc.style.fontSize = '13px'
+            desc.style.color = '#4b5563'
+            desc.textContent = 'Aguarde enquanto extraimos e salvamos os dados da NFC-e.'
+
+            row.appendChild(spinner)
+            row.appendChild(title)
+            box.appendChild(row)
+            box.appendChild(desc)
+            overlay.appendChild(box)
+
+            document.body.appendChild(overlay)
+
+            if (!document.getElementById('invoice-import-processing-style')) {
+                const style = document.createElement('style')
+                style.id = 'invoice-import-processing-style'
+                style.textContent = '@keyframes invoice-import-spin { to { transform: rotate(360deg); } }'
+                document.head.appendChild(style)
+            }
+        },
+        hideProcessingOverlay() {
+            const overlay = document.getElementById('invoice-import-processing-overlay')
+            if (overlay) {
+                overlay.remove()
+            }
+        },
+        notifyError(message) {
+            if (window.FilamentNotification) {
+                new window.FilamentNotification()
+                    .title('Erro na importacao')
+                    .body(message)
+                    .danger()
+                    .send()
                 return
             }
 
-            form.dispatchEvent(new Event('submit', { bubbles: true, cancelable: true }))
+            console.error(message)
+        },
+        closeCurrentModal() {
+            const modal = this.$root.closest('[role=dialog]') || document.querySelector('[role=dialog]')
+            if (!modal) {
+                window.dispatchEvent(new Event('modal-closed'))
+                return
+            }
+
+            const closeButton = modal.querySelector('[aria-label=Close], [aria-label=Fechar], button[title=Close], button[title=Fechar]')
+                || Array.from(modal.querySelectorAll('button')).find((btn) => /fechar|close/i.test((btn.textContent || '').trim()))
+
+            if (closeButton) {
+                closeButton.click()
+                return
+            }
+
+            window.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', bubbles: true }))
+        },
+        async importInvoiceFromQr(qrUrl) {
+            const response = await fetch(this.importEndpoint, {
+                method: 'POST',
+                credentials: 'same-origin',
+                headers: {
+                    Accept: 'application/json',
+                    'Content-Type': 'application/json',
+                    'X-CSRF-TOKEN': this.csrfToken,
+                    'X-Requested-With': 'XMLHttpRequest',
+                },
+                body: JSON.stringify({ qr_url: qrUrl }),
+            })
+
+            const payload = await response.json().catch(() => ({}))
+            if (!response.ok) {
+                throw new Error(payload.message || 'Falha ao importar nota fiscal.')
+            }
+
+            if (!payload.redirect_url) {
+                throw new Error('Importacao concluida sem URL de redirecionamento.')
+            }
+
+            window.location.assign(payload.redirect_url)
         },
         async startScanner(forceRestart = false) {
             if (this.scannerStarting || (this.scannerRunning && !forceRestart)) {
@@ -114,7 +226,6 @@
                 return
             }
 
-            // Evita UI/stream duplicados quando o modal re-renderiza.
             reader.innerHTML = ''
 
             if (!reader.id) {
@@ -146,9 +257,20 @@
                 this.scanHandled = true
                 this.qrValue = decodedText
                 this.setQrInputValue(decodedText)
-                this.status = 'QR Code lido. Importando nota...'
+                this.status = 'QR Code lido. Processando nota...'
                 this.stopScanner()
-                setTimeout(() => this.submitImportForm(), 120)
+                this.closeCurrentModal()
+                this.showProcessingOverlay()
+
+                setTimeout(async () => {
+                    try {
+                        await this.importInvoiceFromQr(decodedText)
+                    } catch (error) {
+                        this.hideProcessingOverlay()
+                        this.status = error && error.message ? error.message : 'Erro ao importar a nota fiscal.'
+                        this.notifyError(this.status)
+                    }
+                }, 120)
             }
 
             const onError = () => {}
@@ -165,6 +287,7 @@
                 showTorchButtonIfSupported: false,
                 rememberLastUsedCamera: true,
             }
+
             if (window.Html5QrcodeSupportedFormats && window.Html5QrcodeSupportedFormats.QR_CODE) {
                 scannerConfig.formatsToSupport = [window.Html5QrcodeSupportedFormats.QR_CODE]
             }
@@ -216,17 +339,11 @@
                 return
             }
 
-            // Alguns dispositivos (principalmente Android) aceitam foco contínuo por constraints.
-            // Em outros navegadores isso é ignorado silenciosamente.
             try {
                 await this.scanner.applyVideoConstraints({
-                    advanced: [
-                        { focusMode: 'continuous' },
-                    ],
+                    advanced: [{ focusMode: 'continuous' }],
                 })
-            } catch (_error) {
-                // Sem suporte de foco manual/contínuo no device/browser atual.
-            }
+            } catch (_error) {}
         },
         async initZoom() {
             this.zoomSupported = false
@@ -250,7 +367,6 @@
                 this.zoomMin = Number(zoom.min ?? 1)
                 this.zoomMax = Number(zoom.max ?? this.zoomMin)
                 this.zoomStep = Number(zoom.step ?? 0.1) || 0.1
-                // Começa em 1x para preservar foco inicial.
                 this.zoomValue = Math.min(this.zoomMax, Math.max(this.zoomMin, 1))
                 await this.applyZoom(this.zoomValue)
             } catch (_error) {
@@ -273,14 +389,10 @@
                 await this.scanner.applyVideoConstraints({
                     advanced: [{ zoom: clamped }],
                 })
-                // Em muitos devices o zoom derruba o foco momentaneamente.
-                // Reaplica foco continuo logo apos o zoom.
                 setTimeout(() => {
                     this.enableAutoFocus()
                 }, 180)
-            } catch (_error) {
-                // Alguns aparelhos expõem capability mas falham no apply; ignora.
-            }
+            } catch (_error) {}
         },
         async zoomIn() {
             await this.applyZoom(this.zoomValue + this.zoomStep)
