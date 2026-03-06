@@ -23,6 +23,7 @@ class ViewMarket extends ViewRecord
             HeaderAction::make('editMarket')
                 ->label('Editar')
                 ->icon('heroicon-o-pencil-square')
+                ->slideOver()
                 ->modalHeading('Editar mercado')
                 ->fillForm(fn (): array => [
                     'name' => $this->record->name,
@@ -50,6 +51,7 @@ class ViewMarket extends ViewRecord
             HeaderAction::make('editAddress')
                 ->label('Editar endereco')
                 ->icon('heroicon-o-map-pin')
+                ->slideOver()
                 ->modalHeading('Editar endereco do mercado')
                 ->fillForm(function (): array {
                     $address = $this->record->addresses()->latest('id')->first();

@@ -54,6 +54,7 @@ class ViewProduct extends ViewRecord
             Action::make('editProduct')
                 ->label('Editar')
                 ->icon('heroicon-o-pencil-square')
+                ->slideOver()
                 ->modalHeading('Editar produto')
                 ->fillForm(fn (): array => [
                     'name' => $this->record->name,

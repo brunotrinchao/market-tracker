@@ -313,6 +313,7 @@ class ShoppingListItemsRelationManager extends RelationManager
                 Action::make('addProducts')
                     ->label('Adicionar produtos à lista')
                     ->icon('heroicon-m-plus')
+                    ->slideOver()
                     ->modalHeading('Adicionar produtos à lista')
                     ->modalSubmitActionLabel('Adicionar produtos')
                     ->form([
@@ -419,14 +420,29 @@ class ShoppingListItemsRelationManager extends RelationManager
                 TextInput::make('original_name')
                     ->label('Nome original (opcional)')
                     ->maxLength(255),
+                TextInput::make('barcode')
+                    ->label('Código de barras (opcional)')
+                    ->maxLength(64),
             ])
             ->createOptionUsing(function (array $data): int {
                 $name = trim((string) ($data['name'] ?? ''));
                 $originalName = trim((string) ($data['original_name'] ?? ''));
+                $barcode = trim((string) ($data['barcode'] ?? ''));
+
+                if ($barcode !== '') {
+                    $existingByBarcode = Product::query()
+                        ->where('barcode', $barcode)
+                        ->first();
+
+                    if ($existingByBarcode) {
+                        return (int) $existingByBarcode->getKey();
+                    }
+                }
 
                 $product = Product::query()->create([
                     'name' => $name,
                     'original_name' => $originalName !== '' ? $originalName : $name,
+                    'barcode' => $barcode !== '' ? $barcode : null,
                 ]);
 
                 return (int) $product->getKey();

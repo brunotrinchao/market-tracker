@@ -22,6 +22,7 @@ class ViewCategory extends ViewRecord
             Action::make('editCategory')
                 ->label('Editar')
                 ->icon('heroicon-o-pencil-square')
+                ->slideOver()
                 ->modalHeading('Editar categoria')
                 ->fillForm(fn (): array => [
                     'name' => $this->record->name,
@@ -54,4 +55,3 @@ class ViewCategory extends ViewRecord
         ];
     }
 }
-

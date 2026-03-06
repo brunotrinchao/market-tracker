@@ -6,10 +6,13 @@ use App\Filament\Resources\ShoppingLists\ShoppingListResource;
 use App\Models\InvoiceItem;
 use Filament\Actions\Action;
 use Filament\Actions\DeleteAction;
+use Filament\Forms\Components\DatePicker;
 use Filament\Forms\Components\Textarea;
 use Filament\Forms\Components\TextInput;
 use Filament\Resources\Pages\ViewRecord;
+use Illuminate\Support\Carbon;
 use Illuminate\Support\HtmlString;
+use Illuminate\Support\Str;
 
 class ViewShoppingList extends ViewRecord
 {
@@ -28,9 +31,14 @@ class ViewShoppingList extends ViewRecord
                 ->modalSubmitAction(false)
                 ->modalCancelActionLabel('Fechar')
                 ->modalContent(function (): HtmlString {
+                    $shareToken = $this->ensureShareToken();
+                    $publicUrl = route('shared-shopping-lists.show', ['token' => $shareToken]);
+                    $googleCalendarUrl = $this->buildGoogleCalendarUrl($publicUrl);
+                    $appleCalendarUrl = route('shared-shopping-lists.calendar.ics', ['token' => $shareToken]);
                     $text = $this->buildShareText();
                     $encoded = urlencode($text);
                     $jsonText = json_encode($text, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES);
+                    $publicUrlEncoded = urlencode($publicUrl);
 
                     $html = <<<HTML
 <div style="display:grid;gap:12px;">
@@ -44,10 +52,23 @@ class ViewShoppingList extends ViewRecord
         <a href="https://wa.me/?text={$encoded}" target="_blank" style="padding:8px 12px;border-radius:8px;border:1px solid #16a34a;background:#16a34a;color:#fff;text-decoration:none;">
             WhatsApp
         </a>
+        <a href="{$googleCalendarUrl}" target="_blank" style="padding:8px 12px;border-radius:8px;border:1px solid #2563eb;background:#2563eb;color:#fff;text-decoration:none;">
+            Google Agenda
+        </a>
+        <a href="{$appleCalendarUrl}" target="_blank" style="padding:8px 12px;border-radius:8px;border:1px solid #0f766e;background:#0f766e;color:#fff;text-decoration:none;">
+            Apple Calendar (.ics)
+        </a>
+        <a href="{$publicUrl}" target="_blank" style="padding:8px 12px;border-radius:8px;border:1px solid #d1d5db;background:#fff;color:#111827;text-decoration:none;">
+            Abrir link público
+        </a>
         <button type="button" onclick='(async()=>{const text={$jsonText}; try { await navigator.clipboard.writeText(text); alert("Texto copiado."); } catch(e) { alert("Nao foi possivel copiar."); }})()' style="padding:8px 12px;border-radius:8px;border:1px solid #d1d5db;background:#fff;color:#111827;cursor:pointer;">
             Copiar texto
         </button>
+        <button type="button" onclick='(async()=>{const url=decodeURIComponent("{$publicUrlEncoded}"); try { await navigator.clipboard.writeText(url); alert("Link público copiado."); } catch(e) { alert("Nao foi possivel copiar o link."); }})()' style="padding:8px 12px;border-radius:8px;border:1px solid #d1d5db;background:#fff;color:#111827;cursor:pointer;">
+            Copiar link público
+        </button>
     </div>
+    <input readonly value="{$publicUrl}" style="width:100%;padding:10px;border:1px solid #d1d5db;border-radius:8px;font-size:13px;background:#f9fafb;" />
     <textarea readonly style="width:100%;min-height:280px;padding:10px;border:1px solid #d1d5db;border-radius:8px;font-size:13px;">{$text}</textarea>
 </div>
 HTML;
@@ -57,9 +78,11 @@ HTML;
             Action::make('editShoppingList')
                 ->label('Editar')
                 ->icon('heroicon-o-pencil-square')
+                ->slideOver()
                 ->modalHeading('Editar lista de compra')
                 ->fillForm(fn (): array => [
                     'name' => $this->record->name,
+                    'shopping_date' => $this->record->shopping_date,
                     'notes' => $this->record->notes,
                 ])
                 ->schema([
@@ -67,6 +90,8 @@ HTML;
                         ->label('Nome da lista')
                         ->required()
                         ->maxLength(255),
+                    DatePicker::make('shopping_date')
+                        ->label('Data'),
                     Textarea::make('notes')
                         ->label('Observacoes')
                         ->rows(3)
@@ -133,6 +158,40 @@ HTML;
         }
 
         return implode(PHP_EOL . PHP_EOL . '--------------------------------------------' . PHP_EOL . PHP_EOL, $blocks);
+    }
+
+    private function ensureShareToken(): string
+    {
+        if (filled($this->record->share_token)) {
+            return (string) $this->record->share_token;
+        }
+
+        $this->record->update([
+            'share_token' => Str::random(40),
+        ]);
+
+        $this->record->refresh();
+
+        return (string) $this->record->share_token;
+    }
+
+    private function buildGoogleCalendarUrl(string $publicUrl): string
+    {
+        $date = $this->record->shopping_date
+            ? Carbon::parse($this->record->shopping_date)
+            : Carbon::parse($this->record->created_at ?? now());
+
+        $start = $date->copy()->startOfDay();
+        $end = $start->copy()->addDay();
+
+        $params = [
+            'action' => 'TEMPLATE',
+            'text' => 'Lista de compras - ' . $this->record->name,
+            'dates' => $start->format('Ymd') . '/' . $end->format('Ymd'),
+            'details' => 'Checklist público: ' . $publicUrl,
+        ];
+
+        return 'https://calendar.google.com/calendar/render?' . http_build_query($params);
     }
 
     private function resolveBestOfferForProduct(int $productId): ?array

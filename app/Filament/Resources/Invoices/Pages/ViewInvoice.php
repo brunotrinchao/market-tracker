@@ -22,6 +22,7 @@ class ViewInvoice extends ViewRecord
             Action::make('editInvoice')
                 ->label('Editar')
                 ->icon('heroicon-o-pencil-square')
+                ->slideOver()
                 ->modalHeading('Editar nota')
                 ->fillForm(fn (): array => [
                     'market_id' => $this->record->market_id,

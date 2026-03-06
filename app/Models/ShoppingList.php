@@ -9,8 +9,14 @@ use Illuminate\Database\Eloquent\Relations\HasMany;
 class ShoppingList extends Model
 {
     protected $fillable = [
+        'share_token',
         'name',
+        'shopping_date',
         'notes',
+    ];
+
+    protected $casts = [
+        'shopping_date' => 'date',
     ];
 
     public function items(): HasMany

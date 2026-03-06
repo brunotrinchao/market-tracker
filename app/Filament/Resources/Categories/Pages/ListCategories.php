@@ -23,6 +23,7 @@ class ListCategories extends ListRecords
             Action::make('createCategory')
                 ->label('Nova categoria')
                 ->icon('heroicon-o-plus')
+                ->slideOver()
                 ->modalHeading('Adicionar categoria')
                 ->schema([
                     TextInput::make('name')
