@@ -2,16 +2,26 @@
     /** @var \App\Models\Product $record */
     $record = $getRecord();
     $name = (string) ($record->name ?? '-');
+    $image = $record->image;
     $category = (string) ($record->category?->name ?? 'Sem categoria');
     $marketsCount = (int) ($record->markets_count ?? 0);
     $barcode = (string) ($record->barcode ?? '-');
 @endphp
 
 <div style="width:100%;min-height:150px;margin:6px 0 12px;border:1px solid #e5e7eb;border-radius:12px;background:#fff;padding:16px;box-shadow:0 2px 6px rgba(15,23,42,.06);display:flex;flex-direction:column;justify-content:space-between;">
-    <div>
+    <div style="display:flex;align-items:flex-start;justify-content:space-between;gap:12px;">
+        <div style="min-width:0;">
         <p style="margin:0;font-size:12px;font-weight:600;color:#6b7280;">Produto</p>
         <p style="margin:6px 0 0;font-size:18px;font-weight:600;color:#111827;line-height:1.25;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden;min-height:44px;">{{ $name }}</p>
         <p style="margin:4px 0 0;font-size:12px;color:#6b7280;">Categoria: {{ $category }}</p>
+        </div>
+        @if(filled($image))
+            <img
+                src="{{ $image }}"
+                alt="Imagem do produto"
+                style="width:40px;height:40px;flex-shrink:0;border-radius:10px;object-fit:cover;border:1px solid #e5e7eb;background:#fff;"
+            >
+        @endif
     </div>
     <div style="margin-top:12px;padding-top:12px;border-top:1px dashed #d1d5db;">
         <p style="margin:0;font-size:13px;color:#4b5563;"><span style="font-weight:500;color:#6b7280;">Mercados:</span> <span style="font-weight:700;color:#1d4ed8;">{{ $marketsCount }}</span></p>

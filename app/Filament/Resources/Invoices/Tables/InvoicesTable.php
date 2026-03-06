@@ -16,7 +16,7 @@ class InvoicesTable
     public static function configure(Table $table): Table
     {
         return $table
-            ->modifyQueryUsing(fn (Builder $query) => $query->withCount(['items']))
+            ->modifyQueryUsing(fn (Builder $query) => $query->with(['market'])->withCount(['items']))
             ->recordUrl(fn ($record): string => InvoiceResource::getUrl('view', ['record' => $record]))
             ->columns([
                 ViewColumn::make('mobile_card')

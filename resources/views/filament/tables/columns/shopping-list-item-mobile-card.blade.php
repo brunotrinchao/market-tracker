@@ -2,6 +2,7 @@
     /** @var \App\Models\ShoppingListItem $record */
     $record = $getRecord();
     $productName = (string) ($record->product?->name ?? 'Produto');
+    $productImage = $record->product?->image;
     $quantity = number_format((float) ($record->quantity ?? 0), 3, ',', '.');
     $unitPrice = $record->selected_market_price ?? $record->best_price;
     $unitPriceLabel = $unitPrice !== null ? 'R$ ' . number_format((float) $unitPrice, 2, ',', '.') : '-';
@@ -12,9 +13,18 @@
 @endphp
 
 <div style="width:100%;min-height:155px;margin:6px 0 12px;border:1px solid #e5e7eb;border-radius:12px;background:#fff;padding:16px;box-shadow:0 2px 6px rgba(15,23,42,.06);display:flex;flex-direction:column;justify-content:space-between;">
-    <div>
-        <p style="margin:0;font-size:12px;font-weight:600;color:#6b7280;">Produto</p>
-        <p style="margin:6px 0 0;font-size:18px;font-weight:600;color:#111827;line-height:1.25;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden;min-height:44px;">{{ $productName }}</p>
+    <div style="display:flex;align-items:flex-start;justify-content:space-between;gap:12px;">
+        <div style="min-width:0;">
+            <p style="margin:0;font-size:12px;font-weight:600;color:#6b7280;">Produto</p>
+            <p style="margin:6px 0 0;font-size:18px;font-weight:600;color:#111827;line-height:1.25;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden;min-height:44px;">{{ $productName }}</p>
+        </div>
+        @if(filled($productImage))
+            <img
+                src="{{ $productImage }}"
+                alt="Imagem do produto"
+                style="width:40px;height:40px;flex-shrink:0;border-radius:10px;object-fit:cover;border:1px solid #e5e7eb;background:#fff;"
+            >
+        @endif
     </div>
 
     <div style="margin-top:12px;padding-top:12px;border-top:1px dashed #d1d5db;">

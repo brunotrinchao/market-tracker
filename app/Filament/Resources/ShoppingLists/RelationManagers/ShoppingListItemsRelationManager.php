@@ -55,6 +55,8 @@ class ShoppingListItemsRelationManager extends RelationManager
     {
         return $table
             ->modifyQueryUsing(function (Builder $query): void {
+                $query->with('product');
+
                 $selects = [
                     'best_price' => InvoiceItem::query()
                         ->join('market_products as mp', 'invoice_items.market_product_id', '=', 'mp.id')

@@ -2,6 +2,7 @@
     /** @var \App\Models\Invoice $record */
     $record = $getRecord();
     $marketName = (string) ($record->market?->name ?? 'Sem mercado');
+    $marketLogo = $record->market?->logo;
     $issuedAt = $record->issued_at?->format('d/m/Y H:i') ?? '-';
     $total = 'R$ ' . number_format((float) ($record->total_amount ?? 0), 2, ',', '.');
     $itemsCount = (int) ($record->items_count ?? $record->items()->count());
@@ -20,9 +21,17 @@
             <p style="margin:0;font-size:12px;font-weight:600;color:#6b7280;line-height:1.25;">{{ $issuedAt }}</p>
             <p style="margin:6px 0 0;font-size:18px;font-weight:600;color:#111827;line-height:1.25;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden;min-height:44px;">{{ $marketName }}</p>
         </div>
-        <span style="display:inline-flex;width:40px;height:40px;flex-shrink:0;align-items:center;justify-content:center;border-radius:999px;background:#6b7280;color:#fff;font-size:14px;font-weight:700;">
-            {{ $initials !== '' ? $initials : 'NF' }}
-        </span>
+        @if(filled($marketLogo))
+            <img
+                src="{{ $marketLogo }}"
+                alt="Logo do mercado"
+                style="width:40px;height:40px;flex-shrink:0;border-radius:999px;object-fit:cover;border:1px solid #e5e7eb;background:#fff;"
+            >
+        @else
+            <span style="display:inline-flex;width:40px;height:40px;flex-shrink:0;align-items:center;justify-content:center;border-radius:999px;background:#6b7280;color:#fff;font-size:14px;font-weight:700;">
+                {{ $initials !== '' ? $initials : 'NF' }}
+            </span>
+        @endif
     </div>
 
     <div style="margin-top:14px;padding-top:12px;border-top:1px dashed #d1d5db;">
