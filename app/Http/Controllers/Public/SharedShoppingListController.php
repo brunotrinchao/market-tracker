@@ -20,9 +20,21 @@ class SharedShoppingListController extends Controller
 {
     public function show(string $token): View
     {
+        $hasSortOrder = Schema::hasColumn('shopping_list_items', 'sort_order');
+
         $shoppingList = ShoppingList::query()
             ->where('share_token', $token)
-            ->with(['items.product'])
+            ->with(['items' => function ($query) use ($hasSortOrder): void {
+                if ($hasSortOrder) {
+                    $query
+                        ->orderByRaw('sort_order IS NULL')
+                        ->orderBy('sort_order')
+                        ->orderBy('id');
+                    return;
+                }
+
+                $query->orderBy('id');
+            }, 'items.product'])
             ->firstOrFail();
 
         $groups = [];
@@ -128,7 +140,7 @@ class SharedShoppingListController extends Controller
         ]);
 
         $productName = trim((string) $validated['product_name']);
-        $barcode = trim((string) ($validated['barcode'] ?? ''));
+        $barcode = $this->normalizeBarcode((string) ($validated['barcode'] ?? ''));
 
         $product = null;
         $cosmosProduct = null;
@@ -188,7 +200,8 @@ class SharedShoppingListController extends Controller
         $cheapestMarketId = $this->resolveCheapestMarketId((int) $product->id);
         $targetMarketId = $forcedMarketId ?? $cheapestMarketId;
         $canPersistMarket = Schema::hasColumn('shopping_list_items', 'market_id');
-        DB::transaction(function () use ($shoppingList, $product, $validated, $canPersistMarket, $targetMarketId): void {
+        $hasSortOrder = Schema::hasColumn('shopping_list_items', 'sort_order');
+        DB::transaction(function () use ($shoppingList, $product, $validated, $canPersistMarket, $targetMarketId, $hasSortOrder): void {
             ShoppingList::query()
                 ->whereKey($shoppingList->id)
                 ->lockForUpdate()
@@ -236,6 +249,11 @@ class SharedShoppingListController extends Controller
                 'product_id' => (int) $product->id,
                 'quantity' => (float) $validated['quantity'],
             ];
+            if ($hasSortOrder) {
+                $maxSortOrder = (int) $shoppingList->items()
+                    ->max('sort_order');
+                $payload['sort_order'] = $maxSortOrder + 1;
+            }
 
             if ($canPersistMarket && $targetMarketId !== null) {
                 $payload['market_id'] = $targetMarketId;
@@ -316,11 +334,20 @@ class SharedShoppingListController extends Controller
             ->where('share_token', $token)
             ->firstOrFail();
 
-        $cleanBarcode = trim($barcode);
+        $cleanBarcode = $this->normalizeBarcode($barcode);
 
         $product = Product::query()
             ->where('barcode', $cleanBarcode)
             ->first();
+
+        if (! $product && $cleanBarcode !== '') {
+            $product = Product::query()
+                ->whereRaw(
+                    "REPLACE(REPLACE(REPLACE(REPLACE(barcode, ' ', ''), '-', ''), '.', ''), '/', '') = ?",
+                    [$cleanBarcode]
+                )
+                ->first();
+        }
 
         $cosmosProduct = null;
         if (! $product && $cleanBarcode !== '') {
@@ -334,6 +361,8 @@ class SharedShoppingListController extends Controller
         return response()->json([
             'barcode' => $cleanBarcode,
             'found' => $product !== null || $cosmosProduct !== null,
+            'existing_product' => $product !== null,
+            'existing_product_id' => $product?->id ? (int) $product->id : null,
             'product_name' => $resolvedName,
             'suggested_name' => $resolvedName,
             'thumbnail' => $product?->image ?: ($cosmosProduct['thumbnail'] ?? null),
@@ -358,6 +387,56 @@ class SharedShoppingListController extends Controller
         return redirect()
             ->route('shared-shopping-lists.show', ['token' => $token])
             ->with('shared_list_success', 'Produto removido da lista.');
+    }
+
+    public function reorderItems(string $token, Request $request): JsonResponse
+    {
+        if (! Schema::hasColumn('shopping_list_items', 'sort_order')) {
+            return response()->json(['ok' => false, 'message' => 'Ordenação indisponível.'], 409);
+        }
+
+        $shoppingList = ShoppingList::query()
+            ->where('share_token', $token)
+            ->firstOrFail();
+
+        $validated = $request->validate([
+            'item_ids' => ['required', 'array', 'min:1'],
+            'item_ids.*' => ['integer'],
+        ]);
+
+        $ids = collect($validated['item_ids'])
+            ->map(fn ($id): int => (int) $id)
+            ->unique()
+            ->values();
+
+        if ($ids->isEmpty()) {
+            return response()->json(['ok' => false], 422);
+        }
+
+        $itemsById = ShoppingListItem::query()
+            ->where('shopping_list_id', (int) $shoppingList->id)
+            ->whereIn('id', $ids->all())
+            ->pluck('id')
+            ->map(fn ($id): int => (int) $id)
+            ->flip();
+
+        $orderedIds = $ids
+            ->filter(fn (int $id): bool => $itemsById->has($id))
+            ->values();
+
+        if ($orderedIds->isEmpty()) {
+            return response()->json(['ok' => false], 422);
+        }
+
+        DB::transaction(function () use ($orderedIds): void {
+            foreach ($orderedIds as $index => $id) {
+                ShoppingListItem::query()
+                    ->whereKey($id)
+                    ->update(['sort_order' => $index + 1]);
+            }
+        });
+
+        return response()->json(['ok' => true]);
     }
 
     private function resolveSelectedOffersForProducts(array $productIds, array $marketIds): array
@@ -504,7 +583,7 @@ class SharedShoppingListController extends Controller
 
     private function fetchCosmosProduct(string $barcode): ?array
     {
-        $cleanBarcode = trim($barcode);
+        $cleanBarcode = $this->normalizeBarcode($barcode);
         $token = (string) config('services.cosmos.token', '');
 
         if ($cleanBarcode === '' || $token === '') {
@@ -560,5 +639,10 @@ class SharedShoppingListController extends Controller
             ->implode(', ');
 
         return $address !== '' ? $address : '-';
+    }
+
+    private function normalizeBarcode(string $barcode): string
+    {
+        return preg_replace('/\D+/', '', trim($barcode)) ?? '';
     }
 }

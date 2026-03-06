@@ -41,7 +41,7 @@
         </section>
 
         @foreach($groups as $marketIndex => $group)
-            <section class="market" data-market="{{ $marketIndex }}">
+            <section class="market" data-market="{{ $marketIndex }}" data-market-group>
                 <div class="market-head">
                     <div class="market-head-main">
                         <h2>{{ $group['market_name'] }}</h2>
@@ -180,6 +180,7 @@
         <div class="product-card">
             <strong style="font-size:15px;">Confirmar produto lido</strong>
             <p style="margin:0;font-size:12px;color:var(--muted);" id="confirm-market">Mercado: -</p>
+            <p class="confirm-message" id="confirm-message"></p>
             <div class="product-grid">
                 <div class="field full">
                     <label for="confirm_product_name">Produto</label>
@@ -228,6 +229,7 @@
             token: @json($shoppingList->share_token),
             searchUrlTemplate: @json(route('shared-shopping-lists.products.search', ['token' => $shoppingList->share_token]) . '?q=__Q__&market_id=__MARKET__'),
             barcodeLookupTemplate: @json(route('shared-shopping-lists.barcode.lookup', ['token' => $shoppingList->share_token, 'barcode' => '__BARCODE__'])),
+            reorderItemsUrl: @json(route('shared-shopping-lists.items.reorder', ['token' => $shoppingList->share_token])),
         };
     </script>
     <script src="{{ asset('js/shared-shopping-list.js') }}" defer></script>

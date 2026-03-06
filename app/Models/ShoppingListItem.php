@@ -12,10 +12,12 @@ class ShoppingListItem extends Model
         'product_id',
         'market_id',
         'quantity',
+        'sort_order',
     ];
 
     protected $casts = [
         'quantity' => 'decimal:3',
+        'sort_order' => 'integer',
     ];
 
     public function shoppingList(): BelongsTo

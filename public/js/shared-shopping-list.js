@@ -7,6 +7,7 @@ document.addEventListener('DOMContentLoaded', () => {
     const STORAGE_KEY = 'shared-shopping-list:' + config.token;
     const lookupTemplate = config.barcodeLookupTemplate || '';
     const searchTemplate = config.searchUrlTemplate || '';
+    const reorderItemsUrl = config.reorderItemsUrl || '';
 
     const toastEl = document.getElementById('app-toast');
     const markets = document.querySelectorAll('[data-market]');
@@ -36,11 +37,13 @@ document.addEventListener('DOMContentLoaded', () => {
 
     const confirmModal = document.getElementById('confirm-modal');
     const confirmMarket = document.getElementById('confirm-market');
+    const confirmMessage = document.getElementById('confirm-message');
     const confirmProductName = document.getElementById('confirm_product_name');
     const confirmBarcode = document.getElementById('confirm_barcode');
     const confirmQuantity = document.getElementById('confirm_quantity');
     const confirmCancelBtn = document.getElementById('confirm-cancel-btn');
     const confirmSubmitBtn = document.getElementById('confirm-submit-btn');
+    const confirmDefaultSubmitLabel = confirmSubmitBtn?.textContent || 'Cadastrar';
 
     const removeForms = document.querySelectorAll('.js-remove-form');
     const removeConfirmModal = document.getElementById('remove-confirm-modal');
@@ -63,6 +66,7 @@ document.addEventListener('DOMContentLoaded', () => {
     const hiddenBarcode = document.getElementById('hidden_barcode');
     const hiddenQuantity = document.getElementById('hidden_quantity');
     const sharedAddForm = document.getElementById('shared-add-form');
+    const csrfToken = sharedAddForm?.querySelector('input[name="_token"]')?.value || '';
 
     const saved = JSON.parse(localStorage.getItem(STORAGE_KEY) || '{}');
 
@@ -73,8 +77,10 @@ document.addEventListener('DOMContentLoaded', () => {
 
     let currentMarketId = '';
     let currentMarketName = '';
+    let confirmExistingProductId = '';
 
     let html5LoadPromise = null;
+    let sortableLoadPromise = null;
     let html5Scanner = null;
     let scannerRunning = false;
     let scannerStarting = false;
@@ -87,7 +93,17 @@ document.addEventListener('DOMContentLoaded', () => {
     const openSearchModal = () => { if (searchModal) searchModal.style.display = 'flex'; };
     const closeProductModal = () => { if (productModal) productModal.style.display = 'none'; };
     const openProductModal = () => { if (productModal) productModal.style.display = 'flex'; };
-    const closeConfirmModal = () => { if (confirmModal) confirmModal.style.display = 'none'; };
+    const closeConfirmModal = () => {
+        if (confirmModal) confirmModal.style.display = 'none';
+        confirmExistingProductId = '';
+        setConfirmMessage('');
+        if (confirmProductName) {
+            confirmProductName.readOnly = false;
+        }
+        if (confirmSubmitBtn) {
+            confirmSubmitBtn.textContent = confirmDefaultSubmitLabel;
+        }
+    };
     const openConfirmModal = () => { if (confirmModal) confirmModal.style.display = 'flex'; };
 
     const closeRemoveConfirmModal = () => {
@@ -139,6 +155,15 @@ document.addEventListener('DOMContentLoaded', () => {
         if (scanHint) scanHint.textContent = message;
     };
 
+    const setConfirmMessage = (message, tone = '') => {
+        if (!confirmMessage) return;
+        confirmMessage.textContent = message || '';
+        confirmMessage.classList.remove('is-existing', 'is-warning');
+        if (tone) {
+            confirmMessage.classList.add(tone);
+        }
+    };
+
     const submitSharedItem = ({ marketId, productId, productName, barcode, quantity }) => {
         if (!sharedAddForm) return;
         hiddenMarketId.value = marketId || '';
@@ -147,6 +172,95 @@ document.addEventListener('DOMContentLoaded', () => {
         hiddenBarcode.value = barcode || '';
         hiddenQuantity.value = quantity || '1';
         sharedAddForm.submit();
+    };
+
+    const ensureSortableLoaded = () => {
+        if (window.Sortable) {
+            return Promise.resolve();
+        }
+
+        if (sortableLoadPromise) {
+            return sortableLoadPromise;
+        }
+
+        sortableLoadPromise = new Promise((resolve, reject) => {
+            const existing = document.querySelector('script[data-sortablejs="1"]');
+            if (existing) {
+                existing.addEventListener('load', () => resolve(), { once: true });
+                existing.addEventListener('error', () => reject(new Error('Falha ao carregar SortableJS.')), { once: true });
+                return;
+            }
+
+            const script = document.createElement('script');
+            script.src = 'https://cdn.jsdelivr.net/npm/sortablejs@1.15.2/Sortable.min.js';
+            script.async = true;
+            script.dataset.sortablejs = '1';
+            script.onload = () => resolve();
+            script.onerror = () => reject(new Error('Falha ao carregar SortableJS.'));
+            document.head.appendChild(script);
+        });
+
+        return sortableLoadPromise;
+    };
+
+    const persistMarketOrder = async (marketEl) => {
+        if (!marketEl || !reorderItemsUrl || !csrfToken) return;
+
+        const pendingList = marketEl.querySelector('[data-pending-list]');
+        if (!pendingList) return;
+
+        const orderedIds = Array.from(pendingList.querySelectorAll('[data-item]'))
+            .map((itemEl) => Number(itemEl.getAttribute('data-item')))
+            .filter((id) => Number.isInteger(id) && id > 0);
+
+        if (orderedIds.length < 2) return;
+
+        try {
+            const response = await fetch(reorderItemsUrl, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'Accept': 'application/json',
+                    'X-CSRF-TOKEN': csrfToken,
+                },
+                body: JSON.stringify({ item_ids: orderedIds }),
+            });
+
+            if (!response.ok) {
+                notify('Não foi possível salvar a ordem da lista.', 'error');
+            }
+        } catch (_error) {
+            notify('Falha ao salvar a ordem. Verifique sua conexão.', 'error');
+        }
+    };
+
+    const initSortableForMarket = async (marketEl) => {
+        const pendingList = marketEl.querySelector('[data-pending-list]');
+        if (!pendingList || pendingList.dataset.sortableReady === '1') {
+            return;
+        }
+
+        try {
+            await ensureSortableLoaded();
+
+            window.Sortable.create(pendingList, {
+                animation: 160,
+                draggable: '[data-item]',
+                filter: 'input,button,form,label,a',
+                preventOnFilter: false,
+                ghostClass: 'sortable-ghost',
+                dragClass: 'sortable-drag',
+                forceFallback: true,
+                fallbackOnBody: true,
+                onEnd: () => {
+                    persistMarketOrder(marketEl);
+                },
+            });
+
+            pendingList.dataset.sortableReady = '1';
+        } catch (_error) {
+            // Sem bloqueio da tela se não carregar a lib.
+        }
     };
 
     const updateProgress = () => {
@@ -300,17 +414,43 @@ document.addEventListener('DOMContentLoaded', () => {
             const lookupUrl = lookupTemplate.replace('__BARCODE__', encodeURIComponent(barcodeValue));
             const response = await fetch(lookupUrl);
             const payload = response.ok ? await response.json() : null;
+            const isExistingProduct = Boolean(payload?.existing_product || payload?.source === 'local');
+            const detectedName = payload?.suggested_name || ('Produto ' + barcodeValue);
+            const detectedQuantity = modalQuantity?.value || '1';
 
-            confirmBarcode.value = barcodeValue;
-            confirmProductName.value = payload?.suggested_name || ('Produto ' + barcodeValue);
-            confirmQuantity.value = modalQuantity?.value || '1';
-            confirmMarket.textContent = 'Mercado: ' + (currentMarketName || 'Sem supermercado');
-            openConfirmModal();
+            if (isExistingProduct) {
+                confirmExistingProductId = String(payload?.existing_product_id || '');
+                confirmBarcode.value = barcodeValue;
+                confirmProductName.value = detectedName;
+                confirmProductName.readOnly = true;
+                confirmQuantity.value = detectedQuantity;
+                confirmMarket.textContent = 'Mercado: ' + (currentMarketName || 'Sem supermercado');
+                setConfirmMessage('Este produto já está cadastrado. Deseja adicionar na lista?', 'is-existing');
+                if (confirmSubmitBtn) {
+                    confirmSubmitBtn.textContent = 'Adicionar na lista';
+                }
+                openConfirmModal();
+                return;
+            }
+
+            if (modalBarcode) modalBarcode.value = barcodeValue;
+            if (modalProductName) modalProductName.value = detectedName;
+            if (modalQuantity) modalQuantity.value = detectedQuantity;
+            if (productModalMarket) {
+                productModalMarket.textContent = 'Mercado: ' + (currentMarketName || 'Sem supermercado');
+            }
+            notify('Produto novo. Complete o cadastro para adicionar na lista.');
+            openProductModal();
         } catch (_error) {
             confirmBarcode.value = barcodeValue;
             confirmProductName.value = 'Produto ' + barcodeValue;
+            confirmProductName.readOnly = false;
             confirmQuantity.value = modalQuantity?.value || '1';
             confirmMarket.textContent = 'Mercado: ' + (currentMarketName || 'Sem supermercado');
+            setConfirmMessage('Não foi possível consultar o cadastro. Revise os dados para continuar.', 'is-warning');
+            if (confirmSubmitBtn) {
+                confirmSubmitBtn.textContent = 'Cadastrar';
+            }
             openConfirmModal();
         }
     };
@@ -571,6 +711,7 @@ document.addEventListener('DOMContentLoaded', () => {
         });
 
         syncEmptyState(marketEl);
+        initSortableForMarket(marketEl);
     });
 
     updateProgress();
@@ -656,10 +797,10 @@ document.addEventListener('DOMContentLoaded', () => {
             return;
         }
 
-        setButtonBusy(confirmSubmitBtn, true, 'Cadastrando...');
+        setButtonBusy(confirmSubmitBtn, true, confirmExistingProductId ? 'Adicionando...' : 'Cadastrando...');
         submitSharedItem({
             marketId: currentMarketId,
-            productId: '',
+            productId: confirmExistingProductId || '',
             productName: confirmProductName.value.trim(),
             barcode: confirmBarcode?.value.trim() || '',
             quantity: confirmQuantity?.value || '1',

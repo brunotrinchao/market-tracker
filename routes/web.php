@@ -21,6 +21,8 @@ Route::prefix('/shared-shopping-lists/{token}')
             ->name('shared-shopping-lists.show');
         Route::post('/items', [SharedShoppingListController::class, 'storeItem'])
             ->name('shared-shopping-lists.items.store');
+        Route::post('/items/reorder', [SharedShoppingListController::class, 'reorderItems'])
+            ->name('shared-shopping-lists.items.reorder');
         Route::post('/items/{item}/remove', [SharedShoppingListController::class, 'removeItem'])
             ->name('shared-shopping-lists.items.remove');
         Route::get('/products/search', [SharedShoppingListController::class, 'searchProducts'])

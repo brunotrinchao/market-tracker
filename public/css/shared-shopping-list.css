@@ -233,11 +233,18 @@
     color: #1e40af;
     font-weight: 700;
 }
-        .item-actions {
+.item-actions {
             display: grid;
             gap: 6px;
             justify-items: end;
         }
+.sortable-ghost {
+    opacity: 0.35;
+}
+.sortable-drag {
+    opacity: 0.95;
+    box-shadow: 0 12px 24px rgba(15, 23, 42, 0.2);
+}
 .remove-btn {
             border: 1px solid #fecaca;
             background: #fff1f2;
@@ -363,6 +370,27 @@
             display: grid;
             gap: 10px;
         }
+.confirm-message {
+    margin: 0;
+    font-size: 13px;
+    line-height: 1.45;
+    color: #1f2937;
+    background: #f8fafc;
+    border: 1px solid #cbd5e1;
+    border-radius: 10px;
+    padding: 10px 12px;
+    font-weight: 600;
+}
+.confirm-message.is-existing {
+    color: #064e3b;
+    background: #ecfdf5;
+    border-color: #6ee7b7;
+}
+.confirm-message.is-warning {
+    color: #92400e;
+    background: #fffbeb;
+    border-color: #fcd34d;
+}
         .search-results {
             border: 1px solid var(--line);
             border-radius: 10px;
