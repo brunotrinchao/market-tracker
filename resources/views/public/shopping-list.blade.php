@@ -4,6 +4,7 @@
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <title>{{ $shoppingList->name }} - Lista de compras</title>
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css">
     <link rel="stylesheet" href="{{ asset('css/shared-shopping-list.css') }}">
 </head>
 <body>
@@ -64,7 +65,7 @@
                     >+</button>
                 </div>
 
-                <h3 class="section-title">🛒 A Fazer</h3>
+                <h3 class="section-title"><i class="bi bi-cart3" aria-hidden="true"></i> A Fazer</h3>
                 <div class="items" data-pending-list>
                     @foreach($group['items'] as $item)
                         <div class="item" data-item="{{ $item['id'] }}">
@@ -83,7 +84,9 @@
                                     class="js-remove-form"
                                 >
                                     @csrf
-                                    <button class="remove-btn" type="submit" title="Remover produto" aria-label="Remover produto">🗑</button>
+                                    <button class="remove-btn" type="submit" title="Remover produto" aria-label="Remover produto">
+                                        <i class="bi bi-trash3" aria-hidden="true"></i>
+                                    </button>
                                 </form>
                             </div>
                         </div>
@@ -91,7 +94,7 @@
                 </div>
 
                 <div class="done-wrap">
-                    <h3 class="section-title">✅ Feitos</h3>
+                    <h3 class="section-title"><i class="bi bi-check2-circle" aria-hidden="true"></i> Feitos</h3>
                     <div class="items" data-done-list></div>
                     <div class="empty" data-done-empty>Nenhum item concluído.</div>
                 </div>
@@ -103,7 +106,9 @@
         <div class="scan-card">
             <div class="modal-head">
                 <strong style="font-size:15px;">Leitor de código de barras</strong>
-                <button class="modal-close-btn" type="button" id="scan-close-btn" aria-label="Fechar modal" title="Fechar">✕</button>
+                <button class="modal-close-btn" type="button" id="scan-close-btn" aria-label="Fechar modal" title="Fechar">
+                    <i class="bi bi-x-lg" aria-hidden="true"></i>
+                </button>
             </div>
             <p style="margin:0;font-size:12px;color:var(--muted);">Aponte a câmera para o código. Se não funcionar, digite manualmente.</p>
             <div class="scan-video-wrap">
@@ -135,7 +140,9 @@
         <div class="product-card">
             <div class="modal-head">
                 <strong style="font-size:15px;">Buscar produto</strong>
-                <button class="modal-close-btn" type="button" id="search-cancel-btn" aria-label="Fechar modal" title="Fechar">✕</button>
+                <button class="modal-close-btn" type="button" id="search-cancel-btn" aria-label="Fechar modal" title="Fechar">
+                    <i class="bi bi-x-lg" aria-hidden="true"></i>
+                </button>
             </div>
             <p style="margin:0;font-size:12px;color:var(--muted);" id="search-modal-market">Mercado: -</p>
             <div class="product-grid">
@@ -163,7 +170,9 @@
         <div class="product-card">
             <div class="modal-head">
                 <strong style="font-size:15px;">Cadastrar produto</strong>
-                <button class="modal-close-btn" type="button" id="modal-cancel-btn" aria-label="Fechar modal" title="Fechar">✕</button>
+                <button class="modal-close-btn" type="button" id="modal-cancel-btn" aria-label="Fechar modal" title="Fechar">
+                    <i class="bi bi-x-lg" aria-hidden="true"></i>
+                </button>
             </div>
             <p style="margin:0;font-size:12px;color:var(--muted);" id="product-modal-market">Mercado: -</p>
             <div class="product-grid">
@@ -191,7 +200,9 @@
         <div class="product-card">
             <div class="modal-head">
                 <strong style="font-size:15px;">Confirmar produto lido</strong>
-                <button class="modal-close-btn" type="button" id="confirm-cancel-btn" aria-label="Fechar modal" title="Fechar">✕</button>
+                <button class="modal-close-btn" type="button" id="confirm-cancel-btn" aria-label="Fechar modal" title="Fechar">
+                    <i class="bi bi-x-lg" aria-hidden="true"></i>
+                </button>
             </div>
             <p style="margin:0;font-size:12px;color:var(--muted);" id="confirm-market">Mercado: -</p>
             <p class="confirm-message" id="confirm-message"></p>
@@ -219,7 +230,9 @@
         <div class="product-card">
             <div class="modal-head">
                 <strong style="font-size:15px;">Remover produto</strong>
-                <button class="modal-close-btn" type="button" id="remove-confirm-cancel-btn" aria-label="Fechar modal" title="Fechar">✕</button>
+                <button class="modal-close-btn" type="button" id="remove-confirm-cancel-btn" aria-label="Fechar modal" title="Fechar">
+                    <i class="bi bi-x-lg" aria-hidden="true"></i>
+                </button>
             </div>
             <p style="margin:0;font-size:13px;color:var(--muted);">Tem certeza que deseja remover este produto da lista?</p>
             <div class="modal-actions">
