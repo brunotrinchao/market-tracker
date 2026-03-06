@@ -9,6 +9,7 @@ use App\Models\MarketProduct;
 use App\Models\Product;
 use Filament\Actions\Action;
 use Filament\Forms\Components\Placeholder;
+use Filament\Forms\Components\Radio;
 use Filament\Forms\Components\Repeater;
 use Filament\Forms\Components\Select;
 use Filament\Forms\Components\TextInput;
@@ -22,7 +23,8 @@ use Filament\Tables\Filters\SelectFilter;
 use Filament\Tables\Table;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Support\HtmlString;
-use Illuminate\View\View;
+use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Schema as DbSchema;
 
 class ShoppingListItemsRelationManager extends RelationManager
 {
@@ -52,7 +54,7 @@ class ShoppingListItemsRelationManager extends RelationManager
     {
         return $table
             ->modifyQueryUsing(function (Builder $query): void {
-                $query->addSelect([
+                $selects = [
                     'best_price' => InvoiceItem::query()
                         ->join('market_products as mp', 'invoice_items.market_product_id', '=', 'mp.id')
                         ->whereColumn('mp.product_id', 'shopping_list_items.product_id')
@@ -81,7 +83,33 @@ class ShoppingListItemsRelationManager extends RelationManager
                         ->select('addresses.neighborhood')
                         ->orderBy('ii.unit_price')
                         ->limit(1),
-                ]);
+                ];
+
+                if ($this->hasMarketSelectionColumn()) {
+                    $selects['selected_market_name'] = Market::query()
+                        ->whereColumn('markets.id', 'shopping_list_items.market_id')
+                        ->select('markets.name')
+                        ->limit(1);
+                    $selects['selected_market_neighborhood'] = Address::query()
+                        ->whereColumn('addresses.market_id', 'shopping_list_items.market_id')
+                        ->select('addresses.neighborhood')
+                        ->limit(1);
+                    $selects['selected_market_price'] = InvoiceItem::query()
+                        ->join('market_products as mp', 'invoice_items.market_product_id', '=', 'mp.id')
+                        ->join('invoices as inv', 'invoice_items.invoice_id', '=', 'inv.id')
+                        ->whereColumn('mp.product_id', 'shopping_list_items.product_id')
+                        ->whereColumn('mp.market_id', 'shopping_list_items.market_id')
+                        ->select('invoice_items.unit_price')
+                        ->orderByDesc('inv.issued_at')
+                        ->orderByDesc('invoice_items.created_at')
+                        ->limit(1);
+                } else {
+                    $selects['selected_market_name'] = DB::raw('null');
+                    $selects['selected_market_neighborhood'] = DB::raw('null');
+                    $selects['selected_market_price'] = DB::raw('null');
+                }
+
+                $query->addSelect($selects);
             })
             ->columns([
                 ImageColumn::make('product.image')
@@ -125,18 +153,20 @@ class ShoppingListItemsRelationManager extends RelationManager
                                     ->content(fn ($record): string => $record->best_price !== null ? 'R$ ' . number_format((float) $record->best_price, 2, ',', '.') : '-'),
                                 Placeholder::make('best_market_name_info')
                                     ->label('Onde comprar')
-                                    ->content(fn ($record): string => $record->best_market_name ?? '-'),
+                                    ->content(fn ($record): string => $record->selected_market_name ?? $record->best_market_name ?? '-'),
                                 Placeholder::make('best_market_neighborhood_info')
                                     ->label('Bairro')
-                                    ->content(fn ($record): string => $record->best_market_neighborhood ?? '-'),
+                                    ->content(fn ($record): string => $record->selected_market_neighborhood ?? $record->best_market_neighborhood ?? '-'),
                                 Placeholder::make('estimated_subtotal_info')
                                     ->label('Subtotal estimado')
                                     ->content(function ($record): string {
-                                        if ($record->best_price === null) {
+                                        $unitPrice = $record->selected_market_price ?? $record->best_price;
+
+                                        if ($unitPrice === null) {
                                             return '-';
                                         }
 
-                                        $subtotal = ((float) $record->quantity) * ((float) $record->best_price);
+                                        $subtotal = ((float) $record->quantity) * ((float) $unitPrice);
 
                                         return 'R$ ' . number_format($subtotal, 2, ',', '.');
                                     }),
@@ -180,48 +210,101 @@ class ShoppingListItemsRelationManager extends RelationManager
                     ->label('Onde comprar')
                     ->badge()
                     ->color('success')
+                    ->state(fn ($record): ?string => $record->selected_market_name ?? $record->best_market_name)
                     ->action(
-                        Action::make('openMarketMap')
-                            ->label('Ver no mapa')
-                            ->modalHeading('Localização do supermercado')
+                        Action::make('chooseMarketForItem')
+                            ->label('Selecionar mercado')
+                            ->modalHeading(fn ($record): string => 'Onde comprar - ' . ($record->product->name ?? 'Produto'))
                             ->modalWidth(Width::FiveExtraLarge)
-                            ->modalSubmitAction(false)
-                            ->modalContent(function ($record): View {
-                                $market = null;
+                            ->modalSubmitActionLabel('Salvar mercado')
+                            ->fillForm(function ($record): array {
+                                return [
+                                    'market_id' => $this->hasMarketSelectionColumn()
+                                        ? ($record->market_id ?: $record->best_market_id)
+                                        : $record->best_market_id,
+                                ];
+                            })
+                            ->form([
+                                Radio::make('market_id')
+                                    ->label('Mercados (do mais barato para o mais caro)')
+                                    ->options(function ($record): array {
+                                        return collect($this->getMarketOffersForProduct((int) $record->product_id))
+                                            ->mapWithKeys(function (array $offer): array {
+                                                $priceLabel = $offer['unit_price'] !== null
+                                                    ? 'R$ ' . number_format((float) $offer['unit_price'], 2, ',', '.')
+                                                    : 'Sem preço';
 
-                                if ($record->best_market_id) {
-                                    $market = Market::query()
-                                        ->with('addresses')
-                                        ->find($record->best_market_id);
+                                                return [
+                                                    (string) $offer['market_id'] => "{$offer['market_name']} - {$priceLabel}",
+                                                ];
+                                            })
+                                            ->all();
+                                    })
+                                    ->descriptions(function ($record): array {
+                                        return collect($this->getMarketOffersForProduct((int) $record->product_id))
+                                            ->mapWithKeys(function (array $offer): array {
+                                                $diff = ((float) ($offer['diff_percent'] ?? 0)) <= 0
+                                                    ? 'Mais barato (referência)'
+                                                    : number_format((float) $offer['diff_percent'], 2, ',', '.') . '% acima do mais barato';
+
+                                                return [
+                                                    (string) $offer['market_id'] => "{$offer['market_address']} | {$diff}",
+                                                ];
+                                            })
+                                            ->all();
+                                    })
+                                    ->columns(1)
+                                    ->required(fn ($record): bool => ! empty($this->getMarketOffersForProduct((int) $record->product_id)))
+                                    ->disabled(fn ($record): bool => empty($this->getMarketOffersForProduct((int) $record->product_id)))
+                                    ->helperText(fn ($record): ?string => empty($this->getMarketOffersForProduct((int) $record->product_id))
+                                        ? 'Sem histórico de preço para selecionar mercado.'
+                                        : 'Clique em um mercado da lista para selecionar.'),
+                            ])
+                            ->action(function ($record, array $data): void {
+                                if (! $this->hasMarketSelectionColumn()) {
+                                    Notification::make()
+                                        ->title('Atualize o banco para habilitar a seleção de mercado')
+                                        ->body('Execute as migrations pendentes para criar a coluna market_id em shopping_list_items.')
+                                        ->warning()
+                                        ->send();
+
+                                    return;
                                 }
 
-                                $address = $market?->addresses?->first();
+                                if (! filled($data['market_id'] ?? null)) {
+                                    Notification::make()
+                                        ->title('Não há mercado disponível para este produto')
+                                        ->warning()
+                                        ->send();
 
-                                return view('filament.resources.shopping-lists.relation-managers.market-location-map', [
-                                    'market' => [
-                                        'id' => $market?->id,
-                                        'name' => $market?->name,
-                                        'address' => $address
-                                            ? "{$address->street}, {$address->number}, {$address->neighborhood}, {$address->city} - {$address->state}"
-                                            : null,
-                                        'lat' => $address?->latitude !== null ? (float) $address->latitude : null,
-                                        'lng' => $address?->longitude !== null ? (float) $address->longitude : null,
-                                    ],
+                                    return;
+                                }
+
+                                $record->update([
+                                    'market_id' => (int) $data['market_id'],
                                 ]);
+
+                                Notification::make()
+                                    ->title('Mercado do item atualizado com sucesso')
+                                    ->success()
+                                    ->send();
                             }),
                     )
                     ->placeholder('Sem histórico'),
                 TextColumn::make('best_market_neighborhood')
                     ->label('Bairro')
+                    ->state(fn ($record): ?string => $record->selected_market_neighborhood ?? $record->best_market_neighborhood)
                     ->placeholder('-'),
                 TextColumn::make('estimated_subtotal')
                     ->label('Subtotal estimado')
                     ->state(function ($record): ?float {
-                        if ($record->best_price === null) {
+                        $unitPrice = $record->selected_market_price ?? $record->best_price;
+
+                        if ($unitPrice === null) {
                             return null;
                         }
 
-                        return ((float) $record->quantity) * ((float) $record->best_price);
+                        return ((float) $record->quantity) * ((float) $unitPrice);
                     })
                     ->money('BRL')
                     ->placeholder('-'),
@@ -373,6 +456,98 @@ class ShoppingListItemsRelationManager extends RelationManager
         ];
 
         return $map[$unitCode] ?? $unitCode;
+    }
+
+    private function hasMarketSelectionColumn(): bool
+    {
+        static $hasColumn = null;
+
+        if ($hasColumn !== null) {
+            return $hasColumn;
+        }
+
+        $hasColumn = DbSchema::hasColumn('shopping_list_items', 'market_id');
+
+        return $hasColumn;
+    }
+
+    /**
+     * @return array<int, array{
+     *     market_id:int,
+     *     market_name:string,
+     *     market_address:string,
+     *     unit_price:?float,
+     *     diff_percent:?float
+     * }>
+     */
+    private function getMarketOffersForProduct(int $productId): array
+    {
+        $latestOffers = InvoiceItem::query()
+            ->join('market_products as mp', 'invoice_items.market_product_id', '=', 'mp.id')
+            ->join('markets as m', 'mp.market_id', '=', 'm.id')
+            ->leftJoin('addresses as a', 'a.market_id', '=', 'm.id')
+            ->join('invoices as inv', 'invoice_items.invoice_id', '=', 'inv.id')
+            ->where('mp.product_id', $productId)
+            ->select([
+                'm.id as market_id',
+                'm.name as market_name',
+                'a.street',
+                'a.number',
+                'a.neighborhood',
+                'a.city',
+                'a.state',
+                'invoice_items.unit_price',
+                'inv.issued_at',
+                'invoice_items.created_at',
+            ])
+            ->orderBy('m.id')
+            ->orderByDesc('inv.issued_at')
+            ->orderByDesc('invoice_items.created_at')
+            ->get()
+            ->unique('market_id')
+            ->values()
+            ->map(function ($offer): array {
+                $address = collect([
+                    trim(implode(', ', array_filter([$offer->street, $offer->number]))),
+                    $offer->neighborhood,
+                    trim(implode(' - ', array_filter([$offer->city, $offer->state]))),
+                ])
+                    ->filter(fn (?string $part): bool => filled($part))
+                    ->implode(', ');
+
+                return [
+                    'market_id' => (int) $offer->market_id,
+                    'market_name' => (string) $offer->market_name,
+                    'market_address' => $address !== '' ? $address : '-',
+                    'unit_price' => $offer->unit_price !== null ? (float) $offer->unit_price : null,
+                    'diff_percent' => null,
+                ];
+            })
+            ->sortBy(function (array $offer): float {
+                return $offer['unit_price'] ?? INF;
+            })
+            ->values();
+
+        $cheapestPrice = $latestOffers
+            ->pluck('unit_price')
+            ->filter(fn ($price): bool => $price !== null)
+            ->min();
+
+        if ($cheapestPrice === null || (float) $cheapestPrice <= 0) {
+            return $latestOffers->all();
+        }
+
+        return $latestOffers
+            ->map(function (array $offer) use ($cheapestPrice): array {
+                if ($offer['unit_price'] === null) {
+                    return $offer;
+                }
+
+                $offer['diff_percent'] = round((((float) $offer['unit_price'] - (float) $cheapestPrice) / (float) $cheapestPrice) * 100, 2);
+
+                return $offer;
+            })
+            ->all();
     }
 
 }

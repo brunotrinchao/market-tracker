@@ -66,6 +66,10 @@ class AdminPanelProvider extends PanelProvider
                 Authenticate::class,
             ])
             ->renderHook(
+                PanelsRenderHook::HEAD_END,
+                fn () => view('filament.components.mobile-first-overrides'),
+            )
+            ->renderHook(
                 PanelsRenderHook::BODY_END,
                 fn () => view('filament.components.floating-new-invoice-button'),
             );

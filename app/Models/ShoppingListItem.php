@@ -10,6 +10,7 @@ class ShoppingListItem extends Model
     protected $fillable = [
         'shopping_list_id',
         'product_id',
+        'market_id',
         'quantity',
     ];
 
@@ -25,5 +26,10 @@ class ShoppingListItem extends Model
     public function product(): BelongsTo
     {
         return $this->belongsTo(Product::class);
+    }
+
+    public function market(): BelongsTo
+    {
+        return $this->belongsTo(Market::class);
     }
 }
