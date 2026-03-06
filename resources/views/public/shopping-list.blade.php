@@ -104,6 +104,11 @@
             background: var(--accent);
             color: #fff;
         }
+        .btn-danger {
+            border-color: #b91c1c;
+            background: #b91c1c;
+            color: #fff;
+        }
         .add-form {
             background: var(--card);
             border: 1px solid var(--line);
@@ -168,6 +173,12 @@
             align-items: center;
             justify-content: space-between;
             gap: 10px;
+            cursor: pointer;
+        }
+        .market.is-collapsed > .section-title,
+        .market.is-collapsed > .items,
+        .market.is-collapsed > .done-wrap {
+            display: none;
         }
         .market-head-main { min-width: 0; }
         .market-head h2 {
@@ -410,7 +421,11 @@
                                 <p class="item-meta">Qtd: {{ $item['quantity'] }} | Últ. valor: {{ $item['unit_price'] }}</p>
                             </div>
                             <div class="item-actions">
-                                <form method="POST" action="{{ route('shared-shopping-lists.items.remove', ['token' => $shoppingList->share_token, 'item' => $item['id']]) }}">
+                                <form
+                                    method="POST"
+                                    action="{{ route('shared-shopping-lists.items.remove', ['token' => $shoppingList->share_token, 'item' => $item['id']]) }}"
+                                    class="js-remove-form"
+                                >
                                     @csrf
                                     <button class="remove-btn" type="submit">Remover</button>
                                 </form>
@@ -516,6 +531,17 @@
         </div>
     </div>
 
+    <div class="product-modal" id="remove-confirm-modal">
+        <div class="product-card">
+            <strong style="font-size:15px;">Remover produto</strong>
+            <p style="margin:0;font-size:13px;color:var(--muted);">Tem certeza que deseja remover este produto da lista?</p>
+            <div style="display:flex;justify-content:flex-end;gap:8px;flex-wrap:wrap;">
+                <button class="btn" type="button" id="remove-confirm-cancel-btn">Cancelar</button>
+                <button class="btn btn-danger" type="button" id="remove-confirm-submit-btn">Remover</button>
+            </div>
+        </div>
+    </div>
+
     <form id="shared-add-form" method="POST" action="{{ route('shared-shopping-lists.items.store', ['token' => $shoppingList->share_token]) }}" style="display:none;">
         @csrf
         <input type="hidden" name="market_id" id="hidden_market_id">
@@ -557,6 +583,7 @@
             };
 
             markets.forEach((marketEl) => {
+                const marketHead = marketEl.querySelector('.market-head');
                 const pendingList = marketEl.querySelector('[data-pending-list]');
                 const doneList = marketEl.querySelector('[data-done-list]');
 
@@ -587,6 +614,14 @@
                     });
                 });
 
+                marketHead?.addEventListener('click', (event) => {
+                    if (event.target instanceof Element && event.target.closest('[data-open-add]')) {
+                        return;
+                    }
+
+                    marketEl.classList.toggle('is-collapsed');
+                });
+
                 syncEmptyState(marketEl);
             });
             updateProgress();
@@ -614,6 +649,10 @@
             const modalSubmitBtn = document.getElementById('modal-submit-btn');
             const confirmCancelBtn = document.getElementById('confirm-cancel-btn');
             const confirmSubmitBtn = document.getElementById('confirm-submit-btn');
+            const removeForms = document.querySelectorAll('.js-remove-form');
+            const removeConfirmModal = document.getElementById('remove-confirm-modal');
+            const removeConfirmCancelBtn = document.getElementById('remove-confirm-cancel-btn');
+            const removeConfirmSubmitBtn = document.getElementById('remove-confirm-submit-btn');
 
             const scanModal = document.getElementById('scan-modal');
             const scanCloseBtn = document.getElementById('scan-close-btn');
@@ -626,9 +665,12 @@
             const sharedAddForm = document.getElementById('shared-add-form');
             let scanStream = null;
             let detectorInterval = null;
+            let zxingControls = null;
+            let zxingLoadingPromise = null;
             let currentMarketId = '';
             let currentMarketName = '';
             let searchDebounceTimer = null;
+            let removeTargetForm = null;
 
             const closeSearchModal = () => { searchModal.style.display = 'none'; };
             const openSearchModal = () => { searchModal.style.display = 'flex'; };
@@ -636,6 +678,14 @@
             const closeConfirmModal = () => { confirmModal.style.display = 'none'; };
             const openProductModal = () => { productModal.style.display = 'flex'; };
             const openConfirmModal = () => { confirmModal.style.display = 'flex'; };
+            const closeRemoveConfirmModal = () => {
+                removeConfirmModal.style.display = 'none';
+                removeTargetForm = null;
+            };
+            const openRemoveConfirmModal = (form) => {
+                removeTargetForm = form;
+                removeConfirmModal.style.display = 'flex';
+            };
 
             const submitSharedItem = ({ marketId, productId, productName, barcode, quantity }) => {
                 hiddenMarketId.value = marketId || '';
@@ -644,6 +694,53 @@
                 hiddenBarcode.value = barcode || '';
                 hiddenQuantity.value = quantity || '1';
                 sharedAddForm.submit();
+            };
+
+            const handleDetectedBarcode = async (barcodeValue) => {
+                stopScanner();
+
+                try {
+                    const lookupTemplate = @json(route('shared-shopping-lists.barcode.lookup', ['token' => $shoppingList->share_token, 'barcode' => '__BARCODE__']));
+                    const lookupUrl = lookupTemplate.replace('__BARCODE__', encodeURIComponent(barcodeValue));
+                    const response = await fetch(lookupUrl);
+                    let payload = null;
+                    if (response.ok) {
+                        payload = await response.json();
+                    }
+
+                    confirmBarcode.value = barcodeValue;
+                    confirmProductName.value = payload?.suggested_name || ('Produto ' + barcodeValue);
+                    confirmQuantity.value = modalQuantity.value || '1';
+                    confirmMarket.textContent = 'Mercado: ' + (currentMarketName || 'Sem supermercado');
+                    openConfirmModal();
+                } catch (error) {
+                    confirmBarcode.value = barcodeValue;
+                    confirmProductName.value = 'Produto ' + barcodeValue;
+                    confirmQuantity.value = modalQuantity.value || '1';
+                    confirmMarket.textContent = 'Mercado: ' + (currentMarketName || 'Sem supermercado');
+                    openConfirmModal();
+                }
+            };
+
+            const ensureZxingLoaded = () => {
+                if (window.ZXingBrowser) {
+                    return Promise.resolve();
+                }
+
+                if (zxingLoadingPromise) {
+                    return zxingLoadingPromise;
+                }
+
+                zxingLoadingPromise = new Promise((resolve, reject) => {
+                    const script = document.createElement('script');
+                    script.src = 'https://unpkg.com/@zxing/browser@0.1.5/umd/index.min.js';
+                    script.async = true;
+                    script.onload = () => resolve();
+                    script.onerror = () => reject(new Error('Falha ao carregar biblioteca de leitura.'));
+                    document.head.appendChild(script);
+                });
+
+                return zxingLoadingPromise;
             };
 
             const renderSearchResults = (products) => {
@@ -728,6 +825,10 @@
                     scanStream.getTracks().forEach((track) => track.stop());
                     scanStream = null;
                 }
+                if (zxingControls) {
+                    zxingControls.stop();
+                    zxingControls = null;
+                }
                 if (scanVideo) {
                     scanVideo.srcObject = null;
                 }
@@ -735,60 +836,57 @@
             };
 
             const startScanner = async () => {
-                if (!window.BarcodeDetector || !navigator.mediaDevices?.getUserMedia) {
-                    alert('Leitura por câmera não suportada neste navegador. Digite o código manualmente.');
+                if (!navigator.mediaDevices?.getUserMedia) {
+                    openProductModal();
+                    setTimeout(() => modalBarcode?.focus(), 60);
+                    alert('Este navegador não permite abrir câmera aqui. Digite o código manualmente.');
                     return;
                 }
 
                 try {
-                    scanStream = await navigator.mediaDevices.getUserMedia({
-                        video: { facingMode: { ideal: 'environment' } },
-                        audio: false,
-                    });
-
-                    scanVideo.srcObject = scanStream;
                     scanModal.style.display = 'flex';
+                    if (window.BarcodeDetector) {
+                        scanStream = await navigator.mediaDevices.getUserMedia({
+                            video: { facingMode: { ideal: 'environment' } },
+                            audio: false,
+                        });
 
-                    const detector = new BarcodeDetector({
-                        formats: ['ean_13', 'ean_8', 'upc_a', 'upc_e', 'code_128', 'code_39'],
-                    });
+                        scanVideo.srcObject = scanStream;
 
-                    detectorInterval = setInterval(async () => {
-                        if (!scanVideo || scanVideo.readyState < 2) {
-                            return;
-                        }
+                        const detector = new BarcodeDetector({
+                            formats: ['ean_13', 'ean_8', 'upc_a', 'upc_e', 'code_128', 'code_39'],
+                        });
 
-                        const codes = await detector.detect(scanVideo);
-                        if (codes.length > 0 && codes[0].rawValue) {
-                            const barcodeValue = codes[0].rawValue;
-                            stopScanner();
+                        detectorInterval = setInterval(async () => {
+                            if (!scanVideo || scanVideo.readyState < 2) {
+                                return;
+                            }
 
-                            try {
-                                const lookupTemplate = @json(route('shared-shopping-lists.barcode.lookup', ['token' => $shoppingList->share_token, 'barcode' => '__BARCODE__']));
-                                const lookupUrl = lookupTemplate.replace('__BARCODE__', encodeURIComponent(barcodeValue));
-                                const response = await fetch(lookupUrl);
-                                let payload = null;
-                                if (response.ok) {
-                                    payload = await response.json();
-                                }
+                            const codes = await detector.detect(scanVideo);
+                            if (codes.length > 0 && codes[0].rawValue) {
+                                handleDetectedBarcode(codes[0].rawValue);
+                            }
+                        }, 450);
 
-                                confirmBarcode.value = barcodeValue;
-                                confirmProductName.value = payload?.suggested_name || ('Produto ' + barcodeValue);
-                                confirmQuantity.value = modalQuantity.value || '1';
-                                confirmMarket.textContent = 'Mercado: ' + (currentMarketName || 'Sem supermercado');
-                                openConfirmModal();
-                            } catch (error) {
-                                confirmBarcode.value = barcodeValue;
-                                confirmProductName.value = 'Produto ' + barcodeValue;
-                                confirmQuantity.value = modalQuantity.value || '1';
-                                confirmMarket.textContent = 'Mercado: ' + (currentMarketName || 'Sem supermercado');
-                                openConfirmModal();
+                        return;
+                    }
+
+                    await ensureZxingLoaded();
+                    const codeReader = new window.ZXingBrowser.BrowserMultiFormatReader();
+                    zxingControls = await codeReader.decodeFromVideoDevice(
+                        undefined,
+                        scanVideo,
+                        (result) => {
+                            if (result?.getText) {
+                                handleDetectedBarcode(result.getText());
                             }
                         }
-                    }, 450);
+                    );
                 } catch (error) {
                     stopScanner();
-                    alert('Não foi possível abrir a câmera neste momento.');
+                    openProductModal();
+                    setTimeout(() => modalBarcode?.focus(), 60);
+                    alert('Não foi possível abrir a câmera. Verifique permissão da câmera e se o site está em HTTPS.');
                 }
             };
 
@@ -861,6 +959,19 @@
                 });
             });
 
+            removeForms.forEach((form) => {
+                form.addEventListener('submit', (event) => {
+                    event.preventDefault();
+                    openRemoveConfirmModal(form);
+                });
+            });
+            removeConfirmCancelBtn?.addEventListener('click', closeRemoveConfirmModal);
+            removeConfirmSubmitBtn?.addEventListener('click', () => {
+                if (removeTargetForm) {
+                    removeTargetForm.submit();
+                }
+            });
+
             scanCloseBtn?.addEventListener('click', stopScanner);
             scanModal?.addEventListener('click', (event) => {
                 if (event.target === scanModal) {
@@ -880,6 +991,11 @@
             confirmModal?.addEventListener('click', (event) => {
                 if (event.target === confirmModal) {
                     closeConfirmModal();
+                }
+            });
+            removeConfirmModal?.addEventListener('click', (event) => {
+                if (event.target === removeConfirmModal) {
+                    closeRemoveConfirmModal();
                 }
             });
         })();
