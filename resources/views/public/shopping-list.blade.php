@@ -448,6 +448,15 @@
             <strong style="font-size:15px;">Leitor de código de barras</strong>
             <p style="margin:0;font-size:12px;color:var(--muted);">Aponte a câmera para o código. Se não funcionar, digite manualmente.</p>
             <video id="scan-video" autoplay playsinline muted></video>
+            <div class="product-grid">
+                <div class="field">
+                    <label for="scan_manual_barcode">Código manual</label>
+                    <input id="scan_manual_barcode" type="text" inputmode="numeric" placeholder="Digite o código de barras">
+                </div>
+                <div class="row-actions">
+                    <button class="btn btn-primary" type="button" id="scan-manual-submit-btn">Usar código</button>
+                </div>
+            </div>
             <div style="display:flex;justify-content:flex-end;gap:8px;">
                 <button class="btn" type="button" id="scan-close-btn">Fechar</button>
             </div>
@@ -657,6 +666,8 @@
             const scanModal = document.getElementById('scan-modal');
             const scanCloseBtn = document.getElementById('scan-close-btn');
             const scanVideo = document.getElementById('scan-video');
+            const scanManualBarcode = document.getElementById('scan_manual_barcode');
+            const scanManualSubmitBtn = document.getElementById('scan-manual-submit-btn');
             const hiddenMarketId = document.getElementById('hidden_market_id');
             const hiddenProductId = document.getElementById('hidden_product_id');
             const hiddenProductName = document.getElementById('hidden_product_name');
@@ -733,7 +744,7 @@
 
                 zxingLoadingPromise = new Promise((resolve, reject) => {
                     const script = document.createElement('script');
-                    script.src = 'https://unpkg.com/@zxing/browser@0.1.5/umd/index.min.js';
+                    script.src = '/js/zxing-browser.min.js';
                     script.async = true;
                     script.onload = () => resolve();
                     script.onerror = () => reject(new Error('Falha ao carregar biblioteca de leitura.'));
@@ -851,11 +862,14 @@
                 if (scanVideo) {
                     scanVideo.srcObject = null;
                 }
+                if (scanManualBarcode) {
+                    scanManualBarcode.value = '';
+                }
                 scanModal.style.display = 'none';
             };
 
             const startScanner = async () => {
-                if (!navigator.mediaDevices?.getUserMedia) {
+                if (!navigator.mediaDevices?.getUserMedia || !scanVideo) {
                     openProductModal();
                     setTimeout(() => modalBarcode?.focus(), 60);
                     alert('Este navegador não permite abrir câmera aqui. Digite o código manualmente.');
@@ -863,12 +877,11 @@
                 }
 
                 try {
+                    scanStream = await openCameraStream();
+                    scanVideo.srcObject = scanStream;
                     scanModal.style.display = 'flex';
+
                     if (window.BarcodeDetector) {
-                        scanStream = await openCameraStream();
-
-                        scanVideo.srcObject = scanStream;
-
                         const detector = new BarcodeDetector({
                             formats: ['ean_13', 'ean_8', 'upc_a', 'upc_e', 'code_128', 'code_39'],
                         });
@@ -887,17 +900,21 @@
                         return;
                     }
 
-                    await ensureZxingLoaded();
-                    const codeReader = new window.ZXingBrowser.BrowserMultiFormatReader();
-                    zxingControls = await codeReader.decodeFromConstraints(
-                        { video: { facingMode: { ideal: 'environment' } }, audio: false },
-                        scanVideo,
-                        (result) => {
-                            if (result?.getText) {
-                                handleDetectedBarcode(result.getText());
+                    try {
+                        await ensureZxingLoaded();
+                        const codeReader = new window.ZXingBrowser.BrowserMultiFormatReader();
+                        zxingControls = await codeReader.decodeFromConstraints(
+                            { video: { facingMode: { ideal: 'environment' } }, audio: false },
+                            scanVideo,
+                            (result) => {
+                                if (result?.getText) {
+                                    handleDetectedBarcode(result.getText());
+                                }
                             }
-                        }
-                    );
+                        );
+                    } catch (libraryError) {
+                        alert('A câmera foi aberta, mas a leitura automática não está disponível agora. Digite o código manualmente.');
+                    }
                 } catch (error) {
                     stopScanner();
                     openProductModal();
@@ -958,6 +975,15 @@
             modalScanBtn?.addEventListener('click', () => {
                 closeProductModal();
                 startScanner();
+            });
+            scanManualSubmitBtn?.addEventListener('click', () => {
+                const manualCode = scanManualBarcode?.value?.trim() || '';
+                if (!manualCode) {
+                    alert('Informe o código de barras.');
+                    return;
+                }
+
+                handleDetectedBarcode(manualCode);
             });
 
             confirmCancelBtn?.addEventListener('click', closeConfirmModal);
