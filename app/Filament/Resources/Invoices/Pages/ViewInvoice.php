@@ -4,6 +4,7 @@ namespace App\Filament\Resources\Invoices\Pages;
 
 use App\Filament\Resources\Invoices\InvoiceResource;
 use Filament\Actions\Action;
+use Filament\Actions\ActionGroup;
 use Filament\Actions\DeleteAction;
 use Filament\Forms\Components\DateTimePicker;
 use Filament\Forms\Components\Select;
@@ -19,7 +20,24 @@ class ViewInvoice extends ViewRecord
     protected function getHeaderActions(): array
     {
         return [
-            Action::make('editInvoice')
+            $this->makeEditInvoiceAction('editInvoiceDesktop')
+                ->extraAttributes(['class' => 'mt-desktop-only']),
+            $this->makeDeleteInvoiceAction('deleteInvoiceDesktop')
+                ->extraAttributes(['class' => 'mt-desktop-only']),
+            ActionGroup::make([
+                $this->makeEditInvoiceAction('editInvoiceMobile'),
+                $this->makeDeleteInvoiceAction('deleteInvoiceMobile'),
+            ])
+                ->icon('heroicon-o-ellipsis-vertical')
+                ->tooltip('Ações')
+                ->color('gray')
+                ->extraAttributes(['class' => 'mt-mobile-only']),
+        ];
+    }
+
+    private function makeEditInvoiceAction(string $name): Action
+    {
+        return Action::make($name)
                 ->label('Editar')
                 ->icon('heroicon-o-pencil-square')
                 ->slideOver()
@@ -53,10 +71,13 @@ class ViewInvoice extends ViewRecord
                 ->action(function (array $data): void {
                     $this->record->update($data);
                     $this->record->refresh();
-                }),
-            DeleteAction::make()
-                ->label('Excluir')
-                ->requiresConfirmation(),
-        ];
+                });
+    }
+
+    private function makeDeleteInvoiceAction(string $name): DeleteAction
+    {
+        return DeleteAction::make($name)
+            ->label('Excluir')
+            ->requiresConfirmation();
     }
 }

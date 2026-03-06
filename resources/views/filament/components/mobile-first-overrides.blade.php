@@ -1,10 +1,41 @@
 <style>
+    .mt-mobile-only {
+        display: none !important;
+    }
+
     @media (max-width: 768px) {
+        .mt-desktop-only {
+            display: none !important;
+        }
+
+        .mt-mobile-only {
+            display: inline-flex !important;
+        }
+
         .fi-topbar {
             position: sticky;
             top: 0;
             z-index: 35;
             backdrop-filter: blur(8px);
+        }
+
+        .fi-header {
+            flex-direction: row !important;
+            align-items: flex-start !important;
+            justify-content: space-between !important;
+            gap: 8px !important;
+        }
+
+        .fi-header > div:first-child {
+            min-width: 0;
+            flex: 1 1 auto;
+        }
+
+        .fi-header-actions-ctn {
+            margin-top: 0 !important;
+            margin-left: auto !important;
+            align-self: flex-start !important;
+            flex-shrink: 0;
         }
 
         .fi-btn {

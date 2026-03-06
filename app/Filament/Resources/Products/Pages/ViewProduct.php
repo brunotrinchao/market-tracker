@@ -6,6 +6,7 @@ use App\Filament\Resources\Products\ProductResource;
 use App\Models\Category;
 use App\Services\Products\ProductCategoryClassifier;
 use Filament\Actions\Action;
+use Filament\Actions\ActionGroup;
 use Filament\Actions\DeleteAction;
 use Filament\Forms\Components\Select;
 use Filament\Forms\Components\TagsInput;
@@ -43,99 +44,126 @@ class ViewProduct extends ViewRecord
     protected function getHeaderActions(): array
     {
         return [
-            Action::make('pickGoogleImage')
-                ->label('Selecionar imagem')
-                ->icon('heroicon-o-photo')
-                ->color('info')
-                ->modalHeading('Selecionar imagem do produto')
-                ->modalWidth(Width::FiveExtraLarge)
-                ->modalSubmitAction(false)
-                ->modalContent(fn () => view('filament.resources.products.actions.google-image-picker')),
-            Action::make('editProduct')
-                ->label('Editar')
-                ->icon('heroicon-o-pencil-square')
-                ->slideOver()
-                ->modalHeading('Editar produto')
-                ->fillForm(fn (): array => [
-                    'name' => $this->record->name,
-                    'category_id' => $this->record->category_id,
-                    'image' => $this->record->image,
-                ])
-                ->schema([
-                    TextInput::make('name')
-                        ->label('Nome')
-                        ->required()
-                        ->maxLength(255),
-                    Select::make('category_id')
-                        ->label('Categoria')
-                        ->options(fn (): array => Category::query()->orderBy('name')->pluck('name', 'id')->all())
-                        ->searchable()
-                        ->preload()
-                        ->createOptionForm([
-                            TextInput::make('name')
-                                ->label('Nome da categoria')
-                                ->required()
-                                ->maxLength(255),
-                            TagsInput::make('keywords')
-                                ->label('Palavras-chave')
-                                ->placeholder('Ex: arroz, feijao, cafe'),
-                        ])
-                        ->createOptionUsing(function (array $data): int {
-                            $name = trim((string) ($data['name'] ?? ''));
-                            $keywords = collect((array) ($data['keywords'] ?? []))
-                                ->map(fn (mixed $keyword): string => trim((string) $keyword))
-                                ->filter()
-                                ->values()
-                                ->all();
-
-                            $existingCategory = Category::query()
-                                ->where('name', $name)
-                                ->first();
-
-                            if ($existingCategory) {
-                                return (int) $existingCategory->getKey();
-                            }
-
-                            $baseSlug = Str::slug($name);
-                            if ($baseSlug === '') {
-                                $baseSlug = 'categoria';
-                            }
-
-                            $slug = $baseSlug;
-                            $suffix = 2;
-
-                            while (Category::query()->where('slug', $slug)->exists()) {
-                                $slug = $baseSlug . '-' . $suffix;
-                                $suffix++;
-                            }
-
-                            $category = Category::query()->create([
-                                'name' => $name,
-                                'slug' => $slug,
-                                'keywords' => $keywords,
-                            ]);
-
-                            return (int) $category->getKey();
-                        })
-                        ->placeholder('Sem categoria'),
-                    TextInput::make('image')
-                        ->label('URL da imagem')
-                        ->url()
-                        ->maxLength(255),
-                ])
-                ->action(function (array $data): void {
-                    if (empty($data['category_id'])) {
-                        $data['category_id'] = app(ProductCategoryClassifier::class)
-                            ->inferCategoryId((string) ($data['name'] ?? ''));
-                    }
-
-                    $this->record->update($data);
-                    $this->record->refresh();
-                }),
-            DeleteAction::make()
-                ->label('Excluir')
-                ->requiresConfirmation(),
+            $this->makePickGoogleImageAction('pickGoogleImageDesktop')
+                ->extraAttributes(['class' => 'mt-desktop-only']),
+            $this->makeEditProductAction('editProductDesktop')
+                ->extraAttributes(['class' => 'mt-desktop-only']),
+            $this->makeDeleteProductAction('deleteProductDesktop')
+                ->extraAttributes(['class' => 'mt-desktop-only']),
+            ActionGroup::make([
+                $this->makePickGoogleImageAction('pickGoogleImageMobile'),
+                $this->makeEditProductAction('editProductMobile'),
+                $this->makeDeleteProductAction('deleteProductMobile'),
+            ])
+                ->icon('heroicon-o-ellipsis-vertical')
+                ->tooltip('Ações')
+                ->color('gray')
+                ->extraAttributes(['class' => 'mt-mobile-only']),
         ];
+    }
+
+    private function makePickGoogleImageAction(string $name): Action
+    {
+        return Action::make($name)
+            ->label('Selecionar imagem')
+            ->icon('heroicon-o-photo')
+            ->color('info')
+            ->modalHeading('Selecionar imagem do produto')
+            ->modalWidth(Width::FiveExtraLarge)
+            ->modalSubmitAction(false)
+            ->modalContent(fn () => view('filament.resources.products.actions.google-image-picker'));
+    }
+
+    private function makeEditProductAction(string $name): Action
+    {
+        return Action::make($name)
+            ->label('Editar')
+            ->icon('heroicon-o-pencil-square')
+            ->slideOver()
+            ->modalHeading('Editar produto')
+            ->fillForm(fn (): array => [
+                'name' => $this->record->name,
+                'category_id' => $this->record->category_id,
+                'image' => $this->record->image,
+            ])
+            ->schema([
+                TextInput::make('name')
+                    ->label('Nome')
+                    ->required()
+                    ->maxLength(255),
+                Select::make('category_id')
+                    ->label('Categoria')
+                    ->options(fn (): array => Category::query()->orderBy('name')->pluck('name', 'id')->all())
+                    ->searchable()
+                    ->preload()
+                    ->createOptionForm([
+                        TextInput::make('name')
+                            ->label('Nome da categoria')
+                            ->required()
+                            ->maxLength(255),
+                        TagsInput::make('keywords')
+                            ->label('Palavras-chave')
+                            ->placeholder('Ex: arroz, feijao, cafe'),
+                    ])
+                    ->createOptionUsing(function (array $data): int {
+                        $name = trim((string) ($data['name'] ?? ''));
+                        $keywords = collect((array) ($data['keywords'] ?? []))
+                            ->map(fn (mixed $keyword): string => trim((string) $keyword))
+                            ->filter()
+                            ->values()
+                            ->all();
+
+                        $existingCategory = Category::query()
+                            ->where('name', $name)
+                            ->first();
+
+                        if ($existingCategory) {
+                            return (int) $existingCategory->getKey();
+                        }
+
+                        $baseSlug = Str::slug($name);
+                        if ($baseSlug === '') {
+                            $baseSlug = 'categoria';
+                        }
+
+                        $slug = $baseSlug;
+                        $suffix = 2;
+
+                        while (Category::query()->where('slug', $slug)->exists()) {
+                            $slug = $baseSlug . '-' . $suffix;
+                            $suffix++;
+                        }
+
+                        $category = Category::query()->create([
+                            'name' => $name,
+                            'slug' => $slug,
+                            'keywords' => $keywords,
+                        ]);
+
+                        return (int) $category->getKey();
+                    })
+                    ->placeholder('Sem categoria'),
+                TextInput::make('image')
+                    ->label('URL da imagem')
+                    ->url()
+                    ->maxLength(255),
+            ])
+            ->action(function (array $data): void {
+                if (empty($data['category_id'])) {
+                    $data['category_id'] = app(ProductCategoryClassifier::class)
+                        ->inferCategoryId((string) ($data['name'] ?? ''));
+                }
+
+                $this->record->update($data);
+                $this->record->refresh();
+            });
+    }
+
+    private function makeDeleteProductAction(string $name): DeleteAction
+    {
+        return DeleteAction::make($name)
+            ->label('Excluir')
+            ->requiresConfirmation();
     }
 
     public function getHeaderWidgets(): array

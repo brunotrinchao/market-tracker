@@ -3,6 +3,7 @@
 namespace App\Filament\Resources\Markets\Pages;
 
 use App\Filament\Resources\Markets\MarketResource;
+use Filament\Actions\ActionGroup;
 use Filament\Actions\Action as HeaderAction;
 use Filament\Actions\DeleteAction;
 use Filament\Notifications\Notification;
@@ -20,7 +21,27 @@ class ViewMarket extends ViewRecord
     protected function getHeaderActions(): array
     {
         return [
-            HeaderAction::make('editMarket')
+            $this->makeEditMarketAction('editMarketDesktop')
+                ->extraAttributes(['class' => 'mt-desktop-only']),
+            $this->makeEditAddressAction('editAddressDesktop')
+                ->extraAttributes(['class' => 'mt-desktop-only']),
+            $this->makeDeleteMarketAction('deleteMarketDesktop')
+                ->extraAttributes(['class' => 'mt-desktop-only']),
+            ActionGroup::make([
+                $this->makeEditMarketAction('editMarketMobile'),
+                $this->makeEditAddressAction('editAddressMobile'),
+                $this->makeDeleteMarketAction('deleteMarketMobile'),
+            ])
+                ->icon('heroicon-o-ellipsis-vertical')
+                ->tooltip('Ações')
+                ->color('gray')
+                ->extraAttributes(['class' => 'mt-mobile-only']),
+        ];
+    }
+
+    private function makeEditMarketAction(string $name): HeaderAction
+    {
+        return HeaderAction::make($name)
                 ->label('Editar')
                 ->icon('heroicon-o-pencil-square')
                 ->slideOver()
@@ -47,8 +68,12 @@ class ViewMarket extends ViewRecord
                 ->action(function (array $data): void {
                     $this->record->update($data);
                     $this->record->refresh();
-                }),
-            HeaderAction::make('editAddress')
+                });
+    }
+
+    private function makeEditAddressAction(string $name): HeaderAction
+    {
+        return HeaderAction::make($name)
                 ->label('Editar endereco')
                 ->icon('heroicon-o-map-pin')
                 ->slideOver()
@@ -116,11 +141,14 @@ class ViewMarket extends ViewRecord
                     }
 
                     $this->record->refresh();
-                }),
-            DeleteAction::make()
-                ->label('Excluir')
-                ->requiresConfirmation(),
-        ];
+                });
+    }
+
+    private function makeDeleteMarketAction(string $name): DeleteAction
+    {
+        return DeleteAction::make($name)
+            ->label('Excluir')
+            ->requiresConfirmation();
     }
 
     private function fillAddressFromCurrentModalCep(): void

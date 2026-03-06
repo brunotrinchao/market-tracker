@@ -5,6 +5,7 @@ namespace App\Filament\Resources\ShoppingLists\Pages;
 use App\Filament\Resources\ShoppingLists\ShoppingListResource;
 use App\Models\InvoiceItem;
 use Filament\Actions\Action;
+use Filament\Actions\ActionGroup;
 use Filament\Actions\DeleteAction;
 use Filament\Forms\Components\DatePicker;
 use Filament\Forms\Components\Textarea;
@@ -22,7 +23,27 @@ class ViewShoppingList extends ViewRecord
     protected function getHeaderActions(): array
     {
         return [
-            Action::make('shareShoppingList')
+            $this->makeShareShoppingListAction('shareShoppingListDesktop')
+                ->extraAttributes(['class' => 'mt-desktop-only']),
+            $this->makeEditShoppingListAction('editShoppingListDesktop')
+                ->extraAttributes(['class' => 'mt-desktop-only']),
+            $this->makeDeleteShoppingListAction('deleteShoppingListDesktop')
+                ->extraAttributes(['class' => 'mt-desktop-only']),
+            ActionGroup::make([
+                $this->makeShareShoppingListAction('shareShoppingListMobile'),
+                $this->makeEditShoppingListAction('editShoppingListMobile'),
+                $this->makeDeleteShoppingListAction('deleteShoppingListMobile'),
+            ])
+                ->icon('heroicon-o-ellipsis-vertical')
+                ->tooltip('Ações')
+                ->color('gray')
+                ->extraAttributes(['class' => 'mt-mobile-only']),
+        ];
+    }
+
+    private function makeShareShoppingListAction(string $name): Action
+    {
+        return Action::make($name)
                 ->label('Compartilhar lista')
                 ->icon('heroicon-o-share')
                 ->color('success')
@@ -65,8 +86,12 @@ class ViewShoppingList extends ViewRecord
 HTML;
 
                     return new HtmlString($html);
-                }),
-            Action::make('editShoppingList')
+                });
+    }
+
+    private function makeEditShoppingListAction(string $name): Action
+    {
+        return Action::make($name)
                 ->label('Editar')
                 ->icon('heroicon-o-pencil-square')
                 ->slideOver()
@@ -91,11 +116,14 @@ HTML;
                 ->action(function (array $data): void {
                     $this->record->update($data);
                     $this->record->refresh();
-                }),
-            DeleteAction::make()
-                ->label('Excluir')
-                ->requiresConfirmation(),
-        ];
+                });
+    }
+
+    private function makeDeleteShoppingListAction(string $name): DeleteAction
+    {
+        return DeleteAction::make($name)
+            ->label('Excluir')
+            ->requiresConfirmation();
     }
 
     private function buildShareText(): string

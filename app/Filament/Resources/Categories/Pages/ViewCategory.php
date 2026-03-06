@@ -4,6 +4,7 @@ namespace App\Filament\Resources\Categories\Pages;
 
 use App\Filament\Resources\Categories\CategoryResource;
 use Filament\Actions\Action;
+use Filament\Actions\ActionGroup;
 use Filament\Actions\DeleteAction;
 use Filament\Forms\Components\TagsInput;
 use Filament\Forms\Components\TextInput;
@@ -19,7 +20,24 @@ class ViewCategory extends ViewRecord
     protected function getHeaderActions(): array
     {
         return [
-            Action::make('editCategory')
+            $this->makeEditCategoryAction('editCategoryDesktop')
+                ->extraAttributes(['class' => 'mt-desktop-only']),
+            $this->makeDeleteCategoryAction('deleteCategoryDesktop')
+                ->extraAttributes(['class' => 'mt-desktop-only']),
+            ActionGroup::make([
+                $this->makeEditCategoryAction('editCategoryMobile'),
+                $this->makeDeleteCategoryAction('deleteCategoryMobile'),
+            ])
+                ->icon('heroicon-o-ellipsis-vertical')
+                ->tooltip('Ações')
+                ->color('gray')
+                ->extraAttributes(['class' => 'mt-mobile-only']),
+        ];
+    }
+
+    private function makeEditCategoryAction(string $name): Action
+    {
+        return Action::make($name)
                 ->label('Editar')
                 ->icon('heroicon-o-pencil-square')
                 ->slideOver()
@@ -48,10 +66,13 @@ class ViewCategory extends ViewRecord
 
                     $this->record->update($data);
                     $this->record->refresh();
-                }),
-            DeleteAction::make()
-                ->label('Excluir')
-                ->requiresConfirmation(),
-        ];
+                });
+    }
+
+    private function makeDeleteCategoryAction(string $name): DeleteAction
+    {
+        return DeleteAction::make($name)
+            ->label('Excluir')
+            ->requiresConfirmation();
     }
 }
