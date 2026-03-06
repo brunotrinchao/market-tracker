@@ -344,22 +344,41 @@ class ShoppingListItemsRelationManager extends RelationManager
                         $owner = $this->getOwnerRecord();
 
                         $items->each(function (array $item) use ($owner): void {
+                            $productId = (int) $item['product_id'];
+                            $cheapestMarketId = $this->resolveCheapestMarketId($productId);
+
                             $existing = $owner->items()
-                                ->where('product_id', $item['product_id'])
+                                ->where('product_id', $productId)
                                 ->first();
 
                             if ($existing) {
-                                $existing->update([
+                                $payload = [
                                     'quantity' => (float) $existing->quantity + (float) $item['quantity'],
-                                ]);
+                                ];
+
+                                if (
+                                    $this->hasMarketSelectionColumn()
+                                    && ! $existing->market_id
+                                    && $cheapestMarketId !== null
+                                ) {
+                                    $payload['market_id'] = $cheapestMarketId;
+                                }
+
+                                $existing->update($payload);
 
                                 return;
                             }
 
-                            $owner->items()->create([
-                                'product_id' => $item['product_id'],
+                            $payload = [
+                                'product_id' => $productId,
                                 'quantity' => $item['quantity'],
-                            ]);
+                            ];
+
+                            if ($this->hasMarketSelectionColumn() && $cheapestMarketId !== null) {
+                                $payload['market_id'] = $cheapestMarketId;
+                            }
+
+                            $owner->items()->create($payload);
                         });
 
                         Notification::make()
@@ -456,6 +475,18 @@ class ShoppingListItemsRelationManager extends RelationManager
         ];
 
         return $map[$unitCode] ?? $unitCode;
+    }
+
+    private function resolveCheapestMarketId(int $productId): ?int
+    {
+        $marketId = Market::query()
+            ->join('market_products as mp', 'markets.id', '=', 'mp.market_id')
+            ->join('invoice_items as ii', 'ii.market_product_id', '=', 'mp.id')
+            ->where('mp.product_id', $productId)
+            ->orderBy('ii.unit_price')
+            ->value('markets.id');
+
+        return $marketId !== null ? (int) $marketId : null;
     }
 
     private function hasMarketSelectionColumn(): bool
