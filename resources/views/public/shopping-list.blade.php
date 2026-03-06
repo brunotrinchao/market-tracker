@@ -101,7 +101,10 @@
 
     <div class="scan-modal" id="scan-modal">
         <div class="scan-card">
-            <strong style="font-size:15px;">Leitor de código de barras</strong>
+            <div class="modal-head">
+                <strong style="font-size:15px;">Leitor de código de barras</strong>
+                <button class="modal-close-btn" type="button" id="scan-close-btn" aria-label="Fechar modal" title="Fechar">✕</button>
+            </div>
             <p style="margin:0;font-size:12px;color:var(--muted);">Aponte a câmera para o código. Se não funcionar, digite manualmente.</p>
             <div class="scan-video-wrap">
                 <div id="scan-reader"></div>
@@ -125,15 +128,15 @@
                     <button class="btn btn-primary" type="button" id="scan-manual-submit-btn">Usar código</button>
                 </div>
             </div>
-            <div style="display:flex;justify-content:flex-end;gap:8px;">
-                <button class="btn" type="button" id="scan-close-btn">Fechar</button>
-            </div>
         </div>
     </div>
 
     <div class="product-modal" id="search-modal">
         <div class="product-card">
-            <strong style="font-size:15px;">Buscar produto</strong>
+            <div class="modal-head">
+                <strong style="font-size:15px;">Buscar produto</strong>
+                <button class="modal-close-btn" type="button" id="search-cancel-btn" aria-label="Fechar modal" title="Fechar">✕</button>
+            </div>
             <p style="margin:0;font-size:12px;color:var(--muted);" id="search-modal-market">Mercado: -</p>
             <div class="product-grid">
                 <div class="field full">
@@ -151,7 +154,6 @@
             </div>
 
             <div class="modal-actions">
-                <button class="btn" type="button" id="search-cancel-btn">Cancelar</button>
                 <button class="btn btn-primary" type="button" id="search-create-btn">Cadastrar produto</button>
             </div>
         </div>
@@ -159,7 +161,10 @@
 
     <div class="product-modal" id="product-modal">
         <div class="product-card">
-            <strong style="font-size:15px;">Cadastrar produto</strong>
+            <div class="modal-head">
+                <strong style="font-size:15px;">Cadastrar produto</strong>
+                <button class="modal-close-btn" type="button" id="modal-cancel-btn" aria-label="Fechar modal" title="Fechar">✕</button>
+            </div>
             <p style="margin:0;font-size:12px;color:var(--muted);" id="product-modal-market">Mercado: -</p>
             <div class="product-grid">
                 <div class="field full">
@@ -177,7 +182,6 @@
             </div>
             <div class="modal-actions">
                 <button class="btn" type="button" id="modal-scan-btn">Ler código de barras</button>
-                <button class="btn" type="button" id="modal-cancel-btn">Cancelar</button>
                 <button class="btn btn-primary" type="button" id="modal-submit-btn">Cadastrar</button>
             </div>
         </div>
@@ -185,7 +189,10 @@
 
     <div class="product-modal" id="confirm-modal">
         <div class="product-card">
-            <strong style="font-size:15px;">Confirmar produto lido</strong>
+            <div class="modal-head">
+                <strong style="font-size:15px;">Confirmar produto lido</strong>
+                <button class="modal-close-btn" type="button" id="confirm-cancel-btn" aria-label="Fechar modal" title="Fechar">✕</button>
+            </div>
             <p style="margin:0;font-size:12px;color:var(--muted);" id="confirm-market">Mercado: -</p>
             <p class="confirm-message" id="confirm-message"></p>
             <div class="product-grid">
@@ -203,7 +210,6 @@
                 </div>
             </div>
             <div class="modal-actions">
-                <button class="btn" type="button" id="confirm-cancel-btn">Cancelar</button>
                 <button class="btn btn-primary" type="button" id="confirm-submit-btn">Cadastrar</button>
             </div>
         </div>
@@ -211,10 +217,12 @@
 
     <div class="product-modal" id="remove-confirm-modal">
         <div class="product-card">
-            <strong style="font-size:15px;">Remover produto</strong>
+            <div class="modal-head">
+                <strong style="font-size:15px;">Remover produto</strong>
+                <button class="modal-close-btn" type="button" id="remove-confirm-cancel-btn" aria-label="Fechar modal" title="Fechar">✕</button>
+            </div>
             <p style="margin:0;font-size:13px;color:var(--muted);">Tem certeza que deseja remover este produto da lista?</p>
             <div class="modal-actions">
-                <button class="btn" type="button" id="remove-confirm-cancel-btn">Cancelar</button>
                 <button class="btn btn-danger" type="button" id="remove-confirm-submit-btn">Remover</button>
             </div>
         </div>
