@@ -16,13 +16,13 @@ class ProductForm
     {
         return $schema
             ->components([
-                Section::make('Informacoes do produto')
-                    ->description('Dados utilizados para padronizar comparacao de precos entre mercados.')
+                Section::make('Informações do produto')
+                    ->description('Dados utilizados para padronizar comparação de preços entre mercados.')
                     ->columns(2)
                     ->components([
                         TextInput::make('name')
                             ->label('Nome')
-                            ->placeholder('Ex: Cafe Torrado 500g')
+                            ->placeholder('Ex: Café Torrado 500g')
                             ->required()
                             ->maxLength(255)
                             ->columnSpanFull(),
@@ -43,7 +43,7 @@ class ProductForm
                                     ->maxLength(255),
                                 TagsInput::make('keywords')
                                     ->label('Palavras-chave')
-                                    ->placeholder('Ex: arroz, feijao, cafe'),
+                                    ->placeholder('Ex: arroz, feijão, café'),
                             ])
                             ->createOptionUsing(function (array $data): int {
                                 $name = trim((string) ($data['name'] ?? ''));
@@ -83,7 +83,7 @@ class ProductForm
                                 return (int) $category->getKey();
                             })
                             ->placeholder('Sem categoria')
-                            ->helperText('Se nao informar, o sistema tenta identificar automaticamente.'),
+                            ->helperText('Se não informar, o sistema tenta identificar automaticamente.'),
                         TextInput::make('image')
                             ->label('URL da imagem')
                             ->placeholder('https://...')

@@ -40,10 +40,10 @@ class ViewShoppingList extends ViewRecord
                     $html = <<<HTML
 <div style="display:grid;gap:12px;">
     <p style="font-size:13px;color:#6b7280;margin:0;">
-        Escolha onde compartilhar. Em iPhone, o botao "Compartilhar..." abre WhatsApp, Notas e outros apps.
+        Escolha onde compartilhar. Em iPhone, o botão "Compartilhar..." abre WhatsApp, Notas e outros apps.
     </p>
     <div style="display:flex;gap:8px;flex-wrap:wrap;">
-        <button type="button" onclick='(async()=>{const text={$jsonText}; if (navigator.share) { try { await navigator.share({ text }); } catch(e) {} } else { alert("Compartilhamento nativo nao suportado neste navegador."); }})()' style="padding:8px 12px;border-radius:8px;border:1px solid #d1d5db;background:#111827;color:#fff;cursor:pointer;">
+        <button type="button" onclick='(async()=>{const text={$jsonText}; if (navigator.share) { try { await navigator.share({ text }); } catch(e) {} } else { alert("Compartilhamento nativo não suportado neste navegador."); }})()' style="padding:8px 12px;border-radius:8px;border:1px solid #d1d5db;background:#111827;color:#fff;cursor:pointer;">
             Compartilhar...
         </button>
         <a href="https://wa.me/?text={$encoded}" target="_blank" style="padding:8px 12px;border-radius:8px;border:1px solid #16a34a;background:#16a34a;color:#fff;text-decoration:none;">
@@ -52,10 +52,10 @@ class ViewShoppingList extends ViewRecord
         <a href="{$publicUrl}" target="_blank" style="padding:8px 12px;border-radius:8px;border:1px solid #d1d5db;background:#fff;color:#111827;text-decoration:none;">
             Abrir link público
         </a>
-        <button type="button" onclick='(async()=>{const text={$jsonText}; try { await navigator.clipboard.writeText(text); alert("Texto copiado."); } catch(e) { alert("Nao foi possivel copiar."); }})()' style="padding:8px 12px;border-radius:8px;border:1px solid #d1d5db;background:#fff;color:#111827;cursor:pointer;">
+        <button type="button" onclick='(async()=>{const text={$jsonText}; try { await navigator.clipboard.writeText(text); alert("Texto copiado."); } catch(e) { alert("Não foi possível copiar."); }})()' style="padding:8px 12px;border-radius:8px;border:1px solid #d1d5db;background:#fff;color:#111827;cursor:pointer;">
             Copiar texto
         </button>
-        <button type="button" onclick='(async()=>{const url=decodeURIComponent("{$publicUrlEncoded}"); try { await navigator.clipboard.writeText(url); alert("Link público copiado."); } catch(e) { alert("Nao foi possivel copiar o link."); }})()' style="padding:8px 12px;border-radius:8px;border:1px solid #d1d5db;background:#fff;color:#111827;cursor:pointer;">
+        <button type="button" onclick='(async()=>{const url=decodeURIComponent("{$publicUrlEncoded}"); try { await navigator.clipboard.writeText(url); alert("Link público copiado."); } catch(e) { alert("Não foi possível copiar o link."); }})()' style="padding:8px 12px;border-radius:8px;border:1px solid #d1d5db;background:#fff;color:#111827;cursor:pointer;">
             Copiar link público
         </button>
     </div>
@@ -84,7 +84,7 @@ HTML;
                     DatePicker::make('shopping_date')
                         ->label('Data'),
                     Textarea::make('notes')
-                        ->label('Observacoes')
+                        ->label('Observações')
                         ->rows(3)
                         ->maxLength(1000),
                 ])

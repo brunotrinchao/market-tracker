@@ -15,7 +15,7 @@ class InvoiceForm
         return $schema
             ->components([
                 Section::make('Dados da nota')
-                    ->description('Informacoes principais da NFC-e para consolidacao de historico de precos.')
+                    ->description('Informações principais da NFC-e para consolidação de histórico de preços.')
                     ->columns(2)
                     ->components([
                         Select::make('market_id')

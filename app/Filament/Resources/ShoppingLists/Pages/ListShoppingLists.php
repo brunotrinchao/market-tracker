@@ -31,7 +31,7 @@ class ListShoppingLists extends ListRecords
                         ->default(now())
                         ->required(),
                     Textarea::make('notes')
-                        ->label('Observacoes')
+                        ->label('Observações')
                         ->rows(3)
                         ->maxLength(1000),
                 ])

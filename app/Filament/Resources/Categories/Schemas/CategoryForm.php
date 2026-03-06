@@ -13,7 +13,7 @@ class CategoryForm
     {
         return $schema
             ->components([
-                Section::make('Informacoes da categoria')
+                Section::make('Informações da categoria')
                     ->description('Use palavras-chave para melhorar a categorizacao automatica dos produtos.')
                     ->columns(2)
                     ->components([
@@ -37,4 +37,3 @@ class CategoryForm
             ]);
     }
 }
-

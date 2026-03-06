@@ -28,7 +28,7 @@ class MarketInfolist
                         TextEntry::make('cnpj')
                             ->label('CNPJ')
                             ->badge()
-                            ->placeholder('Nao informado'),
+                            ->placeholder('Não informado'),
                     ]),
                 Section::make('Indicadores')
                     ->columns(3)
@@ -44,12 +44,12 @@ class MarketInfolist
                             ->badge()
                             ->color('success'),
                         TextEntry::make('addresses_count')
-                            ->label('Enderecos')
+                            ->label('Endereços')
                             ->counts('addresses')
                             ->badge()
                             ->color('gray'),
                     ]),
-                Section::make('Endereco do mercado')
+                Section::make('Endereço do mercado')
                     ->columns(2)
                     ->components([
                         TextEntry::make('address_street')

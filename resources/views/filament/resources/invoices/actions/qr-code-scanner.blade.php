@@ -2,7 +2,7 @@
     x-data="{
         importEndpoint: '{{ route('invoices.import.from-qr') }}',
         csrfToken: '{{ csrf_token() }}',
-        status: 'Abrindo camera...',
+        status: 'Abrindo câmera...',
         qrValue: '',
         scanner: null,
         scannerRunning: false,
@@ -56,7 +56,7 @@
             const input = this.findQrInput()
 
             if (!input) {
-                this.status = 'QR lido, mas o campo do formulario nao foi encontrado.'
+                this.status = 'QR lido, mas o campo do formulário não foi encontrado.'
                 return
             }
 
@@ -140,7 +140,7 @@
         notifyError(message) {
             if (window.FilamentNotification) {
                 new window.FilamentNotification()
-                    .title('Erro na importacao')
+                    .title('Erro na importação')
                     .body(message)
                     .danger()
                     .send()
@@ -185,7 +185,7 @@
             }
 
             if (!payload.redirect_url) {
-                throw new Error('Importacao concluida sem URL de redirecionamento.')
+                throw new Error('Importação concluída sem URL de redirecionamento.')
             }
 
             window.location.assign(payload.redirect_url)
@@ -199,13 +199,13 @@
             await this.stopScanner()
 
             if (!window.isSecureContext) {
-                this.status = 'Camera bloqueada: use HTTPS ou localhost.'
+                this.status = 'Câmera bloqueada: use HTTPS ou localhost.'
                 this.scannerStarting = false
                 return
             }
 
             if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
-                this.status = 'Camera nao suportada neste navegador.'
+                this.status = 'Câmera não suportada neste navegador.'
                 this.scannerStarting = false
                 return
             }
@@ -221,7 +221,7 @@
 
             const reader = this.$refs.reader
             if (!reader) {
-                this.status = 'Leitor nao inicializado.'
+                this.status = 'Leitor não inicializado.'
                 this.scannerStarting = false
                 return
             }
@@ -233,7 +233,7 @@
             }
 
             this.scanner = new Html5Qrcode(reader.id, { verbose: false })
-            this.status = 'Aponte a camera para o QR Code da NFC-e. Para cupom pequeno, use o zoom.'
+            this.status = 'Aponte a câmera para o QR Code da NFC-e. Para cupom pequeno, use o zoom.'
             this.scanHandled = false
 
             try {
@@ -244,7 +244,7 @@
                 await this.initZoom()
                 this.scannerStarting = false
             } catch (error) {
-                this.status = 'Nao foi possivel abrir a camera. ' + (error && error.message ? error.message : 'Erro desconhecido')
+                this.status = 'Não foi possível abrir a câmera. ' + (error && error.message ? error.message : 'Erro desconhecido')
                 this.scannerStarting = false
             }
         },
@@ -303,7 +303,7 @@
                 }
             }
 
-            throw lastError || new Error('Nao foi possivel iniciar a camera.')
+            throw lastError || new Error('Não foi possível iniciar a câmera.')
         },
         async loadCameraOptions() {
             if (!window.Html5Qrcode || typeof window.Html5Qrcode.getCameras !== 'function') {

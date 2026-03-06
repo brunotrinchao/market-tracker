@@ -43,7 +43,7 @@ class ListMarkets extends ListRecords
                                 'image' => $market->logo,
                                 'address' => $address
                                     ? "{$address->street}, {$address->number}, {$address->neighborhood}, {$address->city} - {$address->state}"
-                                    : 'Endereco nao informado',
+                                    : 'Endereço não informado',
                                 'lat' => $address?->latitude !== null ? (float) $address->latitude : null,
                                 'lng' => $address?->longitude !== null ? (float) $address->longitude : null,
                                 'resource_url' => \App\Filament\Resources\Markets\MarketResource::getUrl('view', ['record' => $market]),

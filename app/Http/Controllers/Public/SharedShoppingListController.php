@@ -11,9 +11,8 @@ use App\Models\ShoppingListItem;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
-use Illuminate\Http\Response;
-use Illuminate\Support\Carbon;
 use Illuminate\Contracts\View\View;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Schema;
 
@@ -27,12 +26,23 @@ class SharedShoppingListController extends Controller
             ->firstOrFail();
 
         $groups = [];
-        $selectedMarketIds = $shoppingList->items
+        $items = $shoppingList->items
+            ->filter(fn (ShoppingListItem $item): bool => $item->product !== null)
+            ->values();
+        $productIds = $items
+            ->pluck('product_id')
+            ->map(fn ($value): int => (int) $value)
+            ->unique()
+            ->values()
+            ->all();
+
+        $selectedMarketIds = $items
             ->pluck('market_id')
             ->filter(fn ($value): bool => $value !== null)
             ->map(fn ($value): int => (int) $value)
             ->unique()
-            ->values();
+            ->values()
+            ->all();
 
         $selectedMarkets = Market::query()
             ->with('addresses')
@@ -40,14 +50,22 @@ class SharedShoppingListController extends Controller
             ->get()
             ->keyBy('id');
 
-        foreach ($shoppingList->items as $item) {
-            if (! $item->product) {
-                continue;
-            }
+        $selectedOffersByProductMarket = $this->resolveSelectedOffersForProducts($productIds, $selectedMarketIds);
+        $cheapestOffersByProduct = $this->resolveCheapestOffersForProducts($productIds);
+        $lastPricesByProduct = $this->resolveLastPricesForProducts($productIds);
+
+        foreach ($items as $item) {
+            $productId = (int) $item->product_id;
 
             $selectedMarketId = $item->market_id ? (int) $item->market_id : null;
-            $offer = $this->resolveOfferForProduct((int) $item->product_id, $selectedMarketId);
-            $fallbackLastPrice = $this->resolveLastPriceForProduct((int) $item->product_id);
+            $offer = null;
+            if ($selectedMarketId !== null) {
+                $offer = $selectedOffersByProductMarket[$productId . ':' . $selectedMarketId] ?? null;
+            }
+            if (! $offer) {
+                $offer = $cheapestOffersByProduct[$productId] ?? null;
+            }
+            $fallbackLastPrice = $lastPricesByProduct[$productId] ?? null;
 
             $selectedMarket = $selectedMarketId ? $selectedMarkets->get($selectedMarketId) : null;
 
@@ -170,37 +188,50 @@ class SharedShoppingListController extends Controller
         $cheapestMarketId = $this->resolveCheapestMarketId((int) $product->id);
         $targetMarketId = $forcedMarketId ?? $cheapestMarketId;
         $canPersistMarket = Schema::hasColumn('shopping_list_items', 'market_id');
-        $itemsQuery = $shoppingList->items()->where('product_id', $product->id);
-
-        if ($canPersistMarket && $targetMarketId !== null) {
-            $existing = (clone $itemsQuery)
-                ->where('market_id', $targetMarketId)
+        DB::transaction(function () use ($shoppingList, $product, $validated, $canPersistMarket, $targetMarketId): void {
+            ShoppingList::query()
+                ->whereKey($shoppingList->id)
+                ->lockForUpdate()
                 ->first();
 
-            if (! $existing) {
+            $itemsQuery = $shoppingList->items()->where('product_id', $product->id);
+
+            if ($canPersistMarket && $targetMarketId !== null) {
                 $existing = (clone $itemsQuery)
-                    ->whereNull('market_id')
+                    ->where('market_id', $targetMarketId)
+                    ->lockForUpdate()
+                    ->first();
+
+                if (! $existing) {
+                    $existing = (clone $itemsQuery)
+                        ->whereNull('market_id')
+                        ->lockForUpdate()
+                        ->first();
+                }
+            } else {
+                $existing = $itemsQuery
+                    ->lockForUpdate()
                     ->first();
             }
-        } else {
-            $existing = $itemsQuery->first();
-        }
 
-        if ($existing) {
-            $payload = [
-                'quantity' => (float) $existing->quantity + (float) $validated['quantity'],
-            ];
+            if ($existing) {
+                $payload = [
+                    'quantity' => (float) $existing->quantity + (float) $validated['quantity'],
+                ];
 
-            if (
-                $canPersistMarket
-                && $targetMarketId !== null
-                && ! $existing->market_id
-            ) {
-                $payload['market_id'] = $targetMarketId;
+                if (
+                    $canPersistMarket
+                    && $targetMarketId !== null
+                    && ! $existing->market_id
+                ) {
+                    $payload['market_id'] = $targetMarketId;
+                }
+
+                $existing->update($payload);
+
+                return;
             }
 
-            $existing->update($payload);
-        } else {
             $payload = [
                 'product_id' => (int) $product->id,
                 'quantity' => (float) $validated['quantity'],
@@ -211,7 +242,7 @@ class SharedShoppingListController extends Controller
             }
 
             $shoppingList->items()->create($payload);
-        }
+        });
 
         return redirect()
             ->route('shared-shopping-lists.show', ['token' => $token])
@@ -245,6 +276,12 @@ class SharedShoppingListController extends Controller
             ->get(['products.id', 'products.name', 'products.barcode', 'products.image'])
             ->unique('id')
             ->values();
+        $lastPricesByProduct = $this->resolveLastPricesForProducts(
+            $products
+                ->pluck('id')
+                ->map(fn ($value): int => (int) $value)
+                ->all()
+        );
 
         return response()->json([
             'data' => $products->map(fn (Product $product): array => [
@@ -252,7 +289,7 @@ class SharedShoppingListController extends Controller
                 'name' => (string) $product->name,
                 'barcode' => $product->barcode ? (string) $product->barcode : null,
                 'image' => $product->image ? (string) $product->image : null,
-                'last_price' => $this->resolveLastPriceForProduct((int) $product->id),
+                'last_price' => $lastPricesByProduct[(int) $product->id] ?? null,
             ])->values()->all(),
         ]);
     }
@@ -307,55 +344,23 @@ class SharedShoppingListController extends Controller
             ->with('shared_list_success', 'Produto removido da lista.');
     }
 
-    public function appleCalendarIcs(string $token): Response
+    private function resolveSelectedOffersForProducts(array $productIds, array $marketIds): array
     {
-        $shoppingList = ShoppingList::query()
-            ->where('share_token', $token)
-            ->firstOrFail();
+        if ($productIds === [] || $marketIds === []) {
+            return [];
+        }
 
-        $date = $shoppingList->shopping_date
-            ? Carbon::parse($shoppingList->shopping_date)
-            : Carbon::parse($shoppingList->created_at ?? now());
-
-        $start = $date->copy()->startOfDay();
-        $end = $start->copy()->addHour();
-
-        $publicUrl = route('shared-shopping-lists.show', ['token' => $shoppingList->share_token]);
-        $summary = $this->escapeIcsText('Lista de compras - ' . $shoppingList->name);
-        $description = $this->escapeIcsText('Checklist: ' . $publicUrl);
-        $uid = 'shopping-list-' . $shoppingList->id . '@market-tracker';
-        $dtStamp = now()->utc()->format('Ymd\THis\Z');
-
-        $ics = implode("\r\n", [
-            'BEGIN:VCALENDAR',
-            'VERSION:2.0',
-            'PRODID:-//Market Tracker//Shopping List//PT-BR',
-            'CALSCALE:GREGORIAN',
-            'BEGIN:VEVENT',
-            'UID:' . $uid,
-            'DTSTAMP:' . $dtStamp,
-            'DTSTART:' . $start->format('Ymd\THis'),
-            'DTEND:' . $end->format('Ymd\THis'),
-            'SUMMARY:' . $summary,
-            'DESCRIPTION:' . $description,
-            'END:VEVENT',
-            'END:VCALENDAR',
-            '',
-        ]);
-
-        return response($ics, 200, [
-            'Content-Type' => 'text/calendar; charset=utf-8',
-            'Content-Disposition' => 'attachment; filename="lista-de-compras.ics"',
-        ]);
-    }
-
-    private function resolveOfferForProduct(int $productId, ?int $selectedMarketId = null): ?array
-    {
-        $query = InvoiceItem::query()
+        $rows = InvoiceItem::query()
             ->join('market_products as mp', 'invoice_items.market_product_id', '=', 'mp.id')
             ->join('markets as m', 'mp.market_id', '=', 'm.id')
             ->leftJoin('addresses as a', 'a.market_id', '=', 'm.id')
-            ->select([
+            ->whereIn('mp.product_id', $productIds)
+            ->whereIn('mp.market_id', $marketIds)
+            ->orderBy('mp.product_id')
+            ->orderBy('mp.market_id')
+            ->orderByDesc('invoice_items.created_at')
+            ->get([
+                'mp.product_id',
                 'm.id as market_id',
                 'm.name as market_name',
                 'a.street',
@@ -364,37 +369,79 @@ class SharedShoppingListController extends Controller
                 'a.city',
                 'a.state',
                 'invoice_items.unit_price',
-                'invoice_items.created_at',
-            ])
-            ->where('mp.product_id', $productId);
+            ]);
 
-        if ($selectedMarketId) {
-            $query->where('mp.market_id', $selectedMarketId)
-                ->orderByDesc('invoice_items.created_at');
-        } else {
-            $query->orderBy('invoice_items.unit_price');
+        $offers = [];
+        foreach ($rows as $row) {
+            $key = (int) $row->product_id . ':' . (int) $row->market_id;
+            if (isset($offers[$key])) {
+                continue;
+            }
+
+            $offers[$key] = [
+                'market_id' => (int) $row->market_id,
+                'market_name' => (string) $row->market_name,
+                'market_address' => $this->formatAddress(
+                    $row->street,
+                    $row->number,
+                    $row->neighborhood,
+                    $row->city,
+                    $row->state,
+                ),
+                'unit_price' => $row->unit_price !== null ? (float) $row->unit_price : null,
+            ];
         }
 
-        $offer = $query->first();
+        return $offers;
+    }
 
-        if (! $offer) {
-            return null;
+    private function resolveCheapestOffersForProducts(array $productIds): array
+    {
+        if ($productIds === []) {
+            return [];
         }
 
-        $address = collect([
-            trim(implode(', ', array_filter([$offer->street, $offer->number]))),
-            $offer->neighborhood,
-            trim(implode(' - ', array_filter([$offer->city, $offer->state]))),
-        ])
-            ->filter(fn (?string $part): bool => filled($part))
-            ->implode(', ');
+        $rows = InvoiceItem::query()
+            ->join('market_products as mp', 'invoice_items.market_product_id', '=', 'mp.id')
+            ->join('markets as m', 'mp.market_id', '=', 'm.id')
+            ->leftJoin('addresses as a', 'a.market_id', '=', 'm.id')
+            ->whereIn('mp.product_id', $productIds)
+            ->orderBy('mp.product_id')
+            ->orderBy('invoice_items.unit_price')
+            ->get([
+                'mp.product_id',
+                'm.id as market_id',
+                'm.name as market_name',
+                'a.street',
+                'a.number',
+                'a.neighborhood',
+                'a.city',
+                'a.state',
+                'invoice_items.unit_price',
+            ]);
 
-        return [
-            'market_id' => (int) $offer->market_id,
-            'market_name' => (string) $offer->market_name,
-            'market_address' => $address !== '' ? $address : '-',
-            'unit_price' => $offer->unit_price !== null ? (float) $offer->unit_price : null,
-        ];
+        $offers = [];
+        foreach ($rows as $row) {
+            $productId = (int) $row->product_id;
+            if (isset($offers[$productId])) {
+                continue;
+            }
+
+            $offers[$productId] = [
+                'market_id' => (int) $row->market_id,
+                'market_name' => (string) $row->market_name,
+                'market_address' => $this->formatAddress(
+                    $row->street,
+                    $row->number,
+                    $row->neighborhood,
+                    $row->city,
+                    $row->state,
+                ),
+                'unit_price' => $row->unit_price !== null ? (float) $row->unit_price : null,
+            ];
+        }
+
+        return $offers;
     }
 
     private function resolveCheapestMarketId(int $productId): ?int
@@ -408,17 +455,35 @@ class SharedShoppingListController extends Controller
         return $marketId !== null ? (int) $marketId : null;
     }
 
-    private function resolveLastPriceForProduct(int $productId): ?float
+    private function resolveLastPricesForProducts(array $productIds): array
     {
-        $lastPrice = InvoiceItem::query()
+        if ($productIds === []) {
+            return [];
+        }
+
+        $rows = InvoiceItem::query()
             ->join('market_products as mp', 'invoice_items.market_product_id', '=', 'mp.id')
             ->join('invoices as inv', 'invoice_items.invoice_id', '=', 'inv.id')
-            ->where('mp.product_id', $productId)
+            ->whereIn('mp.product_id', $productIds)
+            ->orderBy('mp.product_id')
             ->orderByDesc('inv.issued_at')
             ->orderByDesc('invoice_items.created_at')
-            ->value('invoice_items.unit_price');
+            ->get([
+                'mp.product_id',
+                'invoice_items.unit_price',
+            ]);
 
-        return $lastPrice !== null ? (float) $lastPrice : null;
+        $prices = [];
+        foreach ($rows as $row) {
+            $productId = (int) $row->product_id;
+            if (isset($prices[$productId])) {
+                continue;
+            }
+
+            $prices[$productId] = $row->unit_price !== null ? (float) $row->unit_price : null;
+        }
+
+        return $prices;
     }
 
     private function fetchCosmosProduct(string $barcode): ?array
@@ -468,12 +533,16 @@ class SharedShoppingListController extends Controller
         }
     }
 
-    private function escapeIcsText(string $value): string
+    private function formatAddress(?string $street, ?string $number, ?string $neighborhood, ?string $city, ?string $state): string
     {
-        return str_replace(
-            ["\\", ';', ',', "\r\n", "\n", "\r"],
-            ['\\\\', '\;', '\,', '\n', '\n', '\n'],
-            $value
-        );
+        $address = collect([
+            trim(implode(', ', array_filter([$street, $number]))),
+            $neighborhood,
+            trim(implode(' - ', array_filter([$city, $state]))),
+        ])
+            ->filter(fn (?string $part): bool => filled($part))
+            ->implode(', ');
+
+        return $address !== '' ? $address : '-';
     }
 }

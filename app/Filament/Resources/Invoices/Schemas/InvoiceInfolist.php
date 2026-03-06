@@ -44,7 +44,7 @@ class InvoiceInfolist
                             ->color('info')
                             ->action(
                                 Action::make('viewMarketDetails')
-                                    ->modalHeading('Informacoes do mercado')
+                                    ->modalHeading('Informações do mercado')
                                     ->modalSubmitAction(false)
                                     ->modalCancelActionLabel('Fechar')
                                     ->modalContent(function ($record): HtmlString {

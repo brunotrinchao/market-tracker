@@ -13,7 +13,7 @@ class ProductInfolist
     {
         return $schema
             ->components([
-                Section::make('Informacoes do produto')
+                Section::make('Informações do produto')
                     ->columnSpanFull()
                     ->columns(3)
                     ->components([
@@ -29,7 +29,7 @@ class ProductInfolist
                         TextEntry::make('category.name')
                             ->label('Categoria')
                             ->badge()
-                            ->placeholder('Nao informada'),
+                            ->placeholder('Não informada'),
                         TextEntry::make('original_name')
                             ->label('Nome original')
                             ->placeholder('-')

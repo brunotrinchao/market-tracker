@@ -12,7 +12,7 @@ class MarketForm
     {
         return $schema
             ->components([
-                Section::make('Informacoes do mercado')
+                Section::make('Informações do mercado')
                     ->description('Preencha os dados principais para identificacao do supermercado.')
                     ->columns(2)
                     ->components([

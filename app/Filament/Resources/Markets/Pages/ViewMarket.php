@@ -147,7 +147,7 @@ class ViewMarket extends ViewRecord
 
         if (strlen($cep) !== 8) {
             Notification::make()
-                ->title('Informe um CEP valido com 8 digitos.')
+                ->title('Informe um CEP válido com 8 dígitos.')
                 ->warning()
                 ->send();
             return;
@@ -158,7 +158,7 @@ class ViewMarket extends ViewRecord
     
             if (! $response->successful()) {
                 Notification::make()
-                    ->title('Nao foi possivel consultar o CEP.')
+                    ->title('Não foi possível consultar o CEP.')
                     ->danger()
                     ->send();
                 return;
@@ -167,7 +167,7 @@ class ViewMarket extends ViewRecord
             $payload = $response->json();
             if (! is_array($payload) || ($payload['erro'] ?? false)) {
                 Notification::make()
-                    ->title('CEP nao encontrado.')
+                    ->title('CEP não encontrado.')
                     ->warning()
                     ->send();
                 return;
@@ -190,7 +190,7 @@ class ViewMarket extends ViewRecord
   
 
             Notification::make()
-                ->title('Endereco carregado pelo CEP.')
+                ->title('Endereço carregado pelo CEP.')
                 ->success()
                 ->send();
         } catch (\Throwable) {

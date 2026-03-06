@@ -14,18 +14,20 @@ Route::middleware('guest')->group(function (): void {
     Route::get('/auth/google/callback', [GoogleAuthController::class, 'callback'])->name('auth.google.callback');
 });
 
-Route::get('/shared-shopping-lists/{token}', [SharedShoppingListController::class, 'show'])
-    ->name('shared-shopping-lists.show');
-Route::post('/shared-shopping-lists/{token}/items', [SharedShoppingListController::class, 'storeItem'])
-    ->name('shared-shopping-lists.items.store');
-Route::post('/shared-shopping-lists/{token}/items/{item}/remove', [SharedShoppingListController::class, 'removeItem'])
-    ->name('shared-shopping-lists.items.remove');
-Route::get('/shared-shopping-lists/{token}/products/search', [SharedShoppingListController::class, 'searchProducts'])
-    ->name('shared-shopping-lists.products.search');
-Route::get('/shared-shopping-lists/{token}/barcode/{barcode}', [SharedShoppingListController::class, 'lookupBarcode'])
-    ->name('shared-shopping-lists.barcode.lookup');
-Route::get('/shared-shopping-lists/{token}/calendar.ics', [SharedShoppingListController::class, 'appleCalendarIcs'])
-    ->name('shared-shopping-lists.calendar.ics');
+Route::prefix('/shared-shopping-lists/{token}')
+    ->middleware('throttle:90,1')
+    ->group(function (): void {
+        Route::get('/', [SharedShoppingListController::class, 'show'])
+            ->name('shared-shopping-lists.show');
+        Route::post('/items', [SharedShoppingListController::class, 'storeItem'])
+            ->name('shared-shopping-lists.items.store');
+        Route::post('/items/{item}/remove', [SharedShoppingListController::class, 'removeItem'])
+            ->name('shared-shopping-lists.items.remove');
+        Route::get('/products/search', [SharedShoppingListController::class, 'searchProducts'])
+            ->name('shared-shopping-lists.products.search');
+        Route::get('/barcode/{barcode}', [SharedShoppingListController::class, 'lookupBarcode'])
+            ->name('shared-shopping-lists.barcode.lookup');
+    });
 
 Route::middleware('auth')->group(function (): void {
     Route::post('/invoices/import-from-qr', InvoiceQrImportController::class)

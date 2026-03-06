@@ -54,7 +54,7 @@
             <div class="hc-grid hc-grid-hero">
                 <div>
                     <h2 class="hc-title">Tutorial completo de uso</h2>
-                    <p class="hc-muted">Esta pagina explica o fluxo completo: cadastro inicial, importacao de cupom/nota, gestao de produtos, listas de compra, compartilhamento e uso no mobile.</p>
+                    <p class="hc-muted">Esta página explica o fluxo completo: cadastro inicial, importação de cupom/nota, gestão de produtos, listas de compra, compartilhamento e uso no mobile.</p>
                 </div>
                 <div class="hc-actions">
                     <a href="/invoices/create" class="hc-btn hc-btn-green">Importar cupom</a>
@@ -68,7 +68,7 @@
             <div class="hc-grid hc-grid-filter">
                 <label class="hc-label">
                     <span>Buscar no tutorial</span>
-                    <input type="text" x-model.debounce.250ms="query" placeholder="Ex: importacao, mercado, compartilhamento..." class="hc-input">
+                    <input type="text" x-model.debounce.250ms="query" placeholder="Ex: importação, mercado, compartilhamento..." class="hc-input">
                 </label>
                 <label class="hc-label">
                     <span>Filtrar por tema</span>
@@ -80,7 +80,7 @@
                     </select>
                 </label>
             </div>
-            <div class="hc-counter"><span x-text="filteredSections.length"></span> topicos encontrados.</div>
+            <div class="hc-counter"><span x-text="filteredSections.length"></span> tópicos encontrados.</div>
             <div class="hc-session-nav">
                 <template x-for="section in filteredSections" :key="'nav-' + section.id">
                     <a
@@ -97,8 +97,8 @@
 
         <section class="hc-card">
             <div class="hc-head-row">
-                <h3 class="hc-subtitle">Checklist rapido de implantacao</h3>
-                <span class="hc-counter" x-text="doneCount + '/' + checklist.length + ' concluido(s)'"></span>
+                <h3 class="hc-subtitle">Checklist rápido de implantação</h3>
+                <span class="hc-counter" x-text="doneCount + '/' + checklist.length + ' concluído(s)'"></span>
             </div>
             <div class="hc-progress-track">
                 <div class="hc-progress-bar" :style="'width:' + progressPercent + '%'" ></div>
@@ -148,91 +148,91 @@
                 {
                     id: 'inicio',
                     category: 'Primeiros passos',
-                    title: 'Sessao 1: Configuracao inicial do sistema',
-                    summary: 'Como preparar o ambiente para comecar sem inconsistencias.',
+                    title: 'Sessão 1: Configuração inicial do sistema',
+                    summary: 'Como preparar o ambiente para começar sem inconsistências.',
                     steps: [
-                        'Acesse o painel e valide se o login esta funcionando corretamente, preferencialmente com sua conta principal do Google.',
-                        'No menu de Mercados, cadastre os supermercados que voce realmente usa, incluindo endereco completo para habilitar mapa e agrupamentos.',
-                        'No menu de Categorias, revise as categorias padrao e crie novas somente quando necessario para manter os relatorios limpos.',
-                        'No menu de Produtos, faca uma revisao rapida para corrigir nomes duplicados ou muito genericos antes de iniciar importacoes em massa.'
+                        'Acesse o painel e valide se o login está funcionando corretamente, preferencialmente com sua conta principal do Google.',
+                        'No menu de Mercados, cadastre os supermercados que você realmente usa, incluindo endereço completo para habilitar mapa e agrupamentos.',
+                        'No menu de Categorias, revise as categorias padrão e crie novas somente quando necessário para manter os relatórios limpos.',
+                        'No menu de Produtos, faça uma revisão rápida para corrigir nomes duplicados ou muito genéricos antes de iniciar importações em massa.'
                     ],
                 },
                 {
                     id: 'importacao',
-                    category: 'Importacao',
-                    title: 'Sessao 2: Fluxo recomendado de importacao de cupom/nota',
-                    summary: 'Como cadastrar produtos e precos pelo fluxo oficial.',
+                    category: 'Importação',
+                    title: 'Sessão 2: Fluxo recomendado de importação de cupom/nota',
+                    summary: 'Como cadastrar produtos e preços pelo fluxo oficial.',
                     steps: [
                         'Clique em Importar cupom/nota e use o QR Code/chave de acesso da NFC-e para preencher os itens automaticamente.',
-                        'Verifique o mercado identificado na importacao e ajuste o endereco se estiver incompleto para melhorar o mapa.',
-                        'Confirme os itens importados, mantendo unidade e quantidade corretas; isso melhora os calculos de preco por produto.',
-                        'Salve a nota e revise rapidamente os itens com preco fora do esperado para evitar distorcoes nos comparativos.'
+                        'Verifique o mercado identificado na importação e ajuste o endereço se estiver incompleto para melhorar o mapa.',
+                        'Confirme os itens importados, mantendo unidade e quantidade corretas; isso melhora os cálculos de preço por produto.',
+                        'Salve a nota e revise rapidamente os itens com preço fora do esperado para evitar distorções nos comparativos.'
                     ],
                 },
                 {
                     id: 'listas',
                     category: 'Lista de compras',
-                    title: 'Sessao 3: Criacao e gestao da lista de compras',
-                    summary: 'Como montar listas orientadas por menor preco e mercado.',
+                    title: 'Sessão 3: Criação e gestão da lista de compras',
+                    summary: 'Como montar listas orientadas por menor preço e mercado.',
                     steps: [
-                        'Crie uma nova lista informando nome, data e observacoes para organizar o planejamento da compra da semana.',
-                        'Adicione produtos na lista; quando houver historico de preco, o sistema sugere mercado mais barato.',
-                        'Na coluna Onde comprar, clique no mercado para abrir as opcoes de preco e selecionar manualmente se desejar.',
-                        'Durante o uso no celular, marque os itens como feitos para acompanhar progresso e facilitar execucao no mercado.'
+                        'Crie uma nova lista informando nome, data e observações para organizar o planejamento da compra da semana.',
+                        'Adicione produtos na lista; quando houver histórico de preço, o sistema sugere mercado mais barato.',
+                        'Na coluna Onde comprar, clique no mercado para abrir as opções de preço e selecionar manualmente se desejar.',
+                        'Durante o uso no celular, marque os itens como feitos para acompanhar progresso e facilitar execução no mercado.'
                     ],
                 },
                 {
                     id: 'lista-compartilhada',
                     category: 'Lista compartilhada',
-                    title: 'Sessao 4: Uso da lista de compras compartilhada',
+                    title: 'Sessão 4: Uso da lista de compras compartilhada',
                     summary: 'Passo a passo para quem recebe o link e para quem administra a lista.',
                     steps: [
-                        'Abra a lista no painel e clique em Compartilhar lista para gerar o link publico.',
-                        'Envie o link para a pessoa que fara a compra; ela nao precisa autenticar.',
-                        'No link publico, toque no nome do mercado para expandir/recolher itens.',
-                        'Marque os produtos concluídos no checkbox para mover para a secao Feitos.',
-                        'Use o botao + no mercado correto para adicionar novo item naquela loja.',
+                        'Abra a lista no painel e clique em Compartilhar lista para gerar o link público.',
+                        'Envie o link para a pessoa que fará a compra; ela não precisa autenticar.',
+                        'No link público, toque no nome do mercado para expandir/recolher itens.',
+                        'Marque os produtos concluídos no checkbox para mover para a seção Feitos.',
+                        'Use o botão + no mercado correto para adicionar novo item naquela loja.',
                         'Na busca, digite pelo menos 2 caracteres para localizar produtos daquele mercado.',
-                        'Se nao encontrar, clique em Cadastrar produto e informe nome/quantidade.',
-                        'Se tiver codigo de barras, use Ler codigo de barras; se a camera falhar, digite manualmente.',
-                        'Ao remover um item, confirme no modal; a remocao reflete na lista original do painel.',
-                        'Acompanhe a barra de progresso no topo para ver percentual concluido da compra.'
+                        'Se não encontrar, clique em Cadastrar produto e informe nome/quantidade.',
+                        'Se tiver código de barras, use Ler código de barras; se a câmera falhar, digite manualmente.',
+                        'Ao remover um item, confirme no modal; a remoção reflete na lista original do painel.',
+                        'Acompanhe a barra de progresso no topo para ver percentual concluído da compra.'
                     ],
                 },
                 {
                     id: 'compartilhamento',
                     category: 'Compartilhamento',
-                    title: 'Sessao 5: Compartilhamento publico da lista',
-                    summary: 'Como enviar lista por link sem exigir autenticacao.',
+                    title: 'Sessão 5: Compartilhamento público da lista',
+                    summary: 'Como enviar lista por link sem exigir autenticação.',
                     steps: [
-                        'Abra a lista e use Compartilhar lista para gerar o link publico com token seguro.',
+                        'Abra a lista e use Compartilhar lista para gerar o link público com token seguro.',
                         'Envie o link para quem vai comprar; a pessoa consegue marcar itens, adicionar produtos e remover itens.',
-                        'As alteracoes no link publico refletem na lista original do painel, mantendo sincronizacao em tempo real.',
-                        'Se necessario, gere novo link ao recriar o token para bloquear acessos antigos.'
+                        'As alterações no link público refletem na lista original do painel, mantendo sincronização em tempo real.',
+                        'Se necessário, gere novo link ao recriar o token para bloquear acessos antigos.'
                     ],
                 },
                 {
                     id: 'mobile',
                     category: 'Uso no mobile',
-                    title: 'Sessao 6: Boas praticas para uso no celular',
-                    summary: 'Como obter melhor experiencia durante a compra.',
+                    title: 'Sessão 6: Boas práticas para uso no celular',
+                    summary: 'Como obter melhor experiência durante a compra.',
                     steps: [
-                        'Use navegador atualizado (Chrome ou Safari recente) e permita camera/localizacao quando solicitado.',
-                        'No leitor de codigo de barras, prefira a camera traseira e boa iluminacao para melhorar a leitura.',
-                        'Se a leitura automatica falhar, use o campo de codigo manual no proprio modal para continuar sem interromper fluxo.',
+                        'Use navegador atualizado (Chrome ou Safari recente) e permita câmera/localização quando solicitado.',
+                        'No leitor de código de barras, prefira a câmera traseira e boa iluminação para melhorar a leitura.',
+                        'Se a leitura automática falhar, use o campo de código manual no próprio modal para continuar sem interromper o fluxo.',
                         'Mantenha poucos apps abertos durante a compra para reduzir travamentos e melhorar rapidez no preenchimento.'
                     ],
                 },
                 {
                     id: 'qualidade-dados',
                     category: 'Qualidade de dados',
-                    title: 'Sessao 7: Como manter dados confiaveis',
-                    summary: 'Padroes para evitar ruido em precos e produtos.',
+                    title: 'Sessão 7: Como manter dados confiáveis',
+                    summary: 'Padrões para evitar ruído em preços e produtos.',
                     steps: [
-                        'Evite criar produto manualmente quando ele ja existir; busque pelo nome ou codigo primeiro.',
-                        'Revise produtos sem imagem e sem codigo de barras para enriquecer cadastro e facilitar identificacao no mobile.',
-                        'Padronize nomes (ex.: Arroz 5kg) e evite sufixos desnecessarios para simplificar buscas.',
-                        'Periodicamente, remova duplicidades e valide categorias para manter relatorios mais precisos.'
+                        'Evite criar produto manualmente quando ele já existir; busque pelo nome ou código primeiro.',
+                        'Revise produtos sem imagem e sem código de barras para enriquecer cadastro e facilitar identificação no mobile.',
+                        'Padronize nomes (ex.: Arroz 5kg) e evite sufixos desnecessários para simplificar buscas.',
+                        'Periodicamente, remova duplicidades e valide categorias para manter relatórios mais precisos.'
                     ],
                 },
             ];
@@ -243,11 +243,11 @@
                 sections,
                 openSections: ['inicio'],
                 checklist: [
-                    { id: 'c1', label: 'Mercados principais cadastrados com endereco completo', done: savedChecklist.includes('c1') },
-                    { id: 'c2', label: 'Primeira importacao de cupom/nota realizada com sucesso', done: savedChecklist.includes('c2') },
-                    { id: 'c3', label: 'Lista de compras criada com data e observacoes', done: savedChecklist.includes('c3') },
-                    { id: 'c4', label: 'Compartilhamento publico da lista testado no celular', done: savedChecklist.includes('c4') },
-                    { id: 'c5', label: 'Leitura de codigo de barras testada (automatica ou manual)', done: savedChecklist.includes('c5') },
+                    { id: 'c1', label: 'Mercados principais cadastrados com endereço completo', done: savedChecklist.includes('c1') },
+                    { id: 'c2', label: 'Primeira importação de cupom/nota realizada com sucesso', done: savedChecklist.includes('c2') },
+                    { id: 'c3', label: 'Lista de compras criada com data e observações', done: savedChecklist.includes('c3') },
+                    { id: 'c4', label: 'Compartilhamento público da lista testado no celular', done: savedChecklist.includes('c4') },
+                    { id: 'c5', label: 'Leitura de código de barras testada (automática ou manual)', done: savedChecklist.includes('c5') },
                 ],
 
                 get categories() {

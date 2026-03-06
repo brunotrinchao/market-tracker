@@ -28,7 +28,7 @@ class MarketsTable
                     ->weight('semi-bold')
                     ->description(fn ($record) => $record->addresses->first()
                         ? $record->addresses->first()->city . ' - ' . $record->addresses->first()->state
-                        : 'Endereco nao informado'),
+                        : 'Endereço não informado'),
                 TextColumn::make('cnpj')
                     ->label('CNPJ')
                     ->searchable()
