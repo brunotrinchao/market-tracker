@@ -20,6 +20,13 @@
             @if($shoppingList->notes)
                 <p>{{ $shoppingList->notes }}</p>
             @endif
+            <div class="total-wrap">
+                <span>Total estimado da lista</span>
+                <strong>R$ {{ number_format((float) ($totalAmount ?? 0), 2, ',', '.') }}</strong>
+            </div>
+            @if(($itemsWithoutPrice ?? 0) > 0)
+                <p class="total-note">{{ $itemsWithoutPrice }} item(ns) sem preço para o cálculo.</p>
+            @endif
             <div class="progress-wrap">
                 <div class="progress-meta">
                     <span>Progresso da lista</span>
@@ -76,7 +83,7 @@
                                     class="js-remove-form"
                                 >
                                     @csrf
-                                    <button class="remove-btn" type="submit">Remover</button>
+                                    <button class="remove-btn" type="submit" title="Remover produto" aria-label="Remover produto">🗑</button>
                                 </form>
                             </div>
                         </div>

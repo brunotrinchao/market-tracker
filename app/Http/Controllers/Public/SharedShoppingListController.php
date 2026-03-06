@@ -65,6 +65,8 @@ class SharedShoppingListController extends Controller
         $selectedOffersByProductMarket = $this->resolveSelectedOffersForProducts($productIds, $selectedMarketIds);
         $cheapestOffersByProduct = $this->resolveCheapestOffersForProducts($productIds);
         $lastPricesByProduct = $this->resolveLastPricesForProducts($productIds);
+        $totalAmount = 0.0;
+        $itemsWithoutPrice = 0;
 
         foreach ($items as $item) {
             $productId = (int) $item->product_id;
@@ -98,6 +100,11 @@ class SharedShoppingListController extends Controller
             $marketAddress = $selectedMarketAddress !== '-' ? $selectedMarketAddress : ($offer['market_address'] ?? '-');
             $unitPrice = is_array($offer) ? ($offer['unit_price'] ?? null) : null;
             $displayUnitPrice = $unitPrice ?? $fallbackLastPrice;
+            if ($displayUnitPrice !== null) {
+                $totalAmount += ((float) $displayUnitPrice * (float) $item->quantity);
+            } else {
+                $itemsWithoutPrice++;
+            }
 
             $groups[$marketId] ??= [
                 'market_id' => $selectedMarketId ?? ($offer['market_id'] ?? null),
@@ -122,6 +129,8 @@ class SharedShoppingListController extends Controller
         return view('public.shopping-list', [
             'shoppingList' => $shoppingList,
             'groups' => array_values($groups),
+            'totalAmount' => $totalAmount,
+            'itemsWithoutPrice' => $itemsWithoutPrice,
         ]);
     }
 

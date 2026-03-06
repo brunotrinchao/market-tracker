@@ -43,6 +43,34 @@
             font-size: 13px;
             color: var(--muted);
         }
+.total-wrap {
+    margin-top: 12px;
+    padding: 10px 12px;
+    border: 1px solid #bbf7d0;
+    background: #f0fdf4;
+    border-radius: 10px;
+    display: flex;
+    align-items: baseline;
+    justify-content: space-between;
+    gap: 12px;
+}
+.total-wrap span {
+    font-size: 12px;
+    font-weight: 700;
+    color: #166534;
+    text-transform: uppercase;
+    letter-spacing: .02em;
+}
+.total-wrap strong {
+    font-size: 22px;
+    line-height: 1;
+    color: #14532d;
+}
+.total-note {
+    margin: 6px 0 0 !important;
+    font-size: 12px !important;
+    color: #92400e !important;
+}
         .progress-wrap {
             margin-top: 14px;
             display: grid;
