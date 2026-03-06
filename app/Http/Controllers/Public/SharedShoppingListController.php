@@ -14,6 +14,7 @@ use Illuminate\Http\Request;
 use Illuminate\Http\Response;
 use Illuminate\Support\Carbon;
 use Illuminate\Contracts\View\View;
+use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Schema;
 
 class SharedShoppingListController extends Controller
@@ -112,6 +113,7 @@ class SharedShoppingListController extends Controller
         $barcode = trim((string) ($validated['barcode'] ?? ''));
 
         $product = null;
+        $cosmosProduct = null;
 
         if (filled($validated['product_id'] ?? null)) {
             $product = Product::query()->find((int) $validated['product_id']);
@@ -119,6 +121,10 @@ class SharedShoppingListController extends Controller
 
         if (! $product && $barcode !== '') {
             $product = Product::query()->where('barcode', $barcode)->first();
+
+            if (! $product) {
+                $cosmosProduct = $this->fetchCosmosProduct($barcode);
+            }
         }
 
         if (! $product) {
@@ -128,10 +134,19 @@ class SharedShoppingListController extends Controller
         }
 
         if (! $product) {
+            $resolvedProductName = $productName;
+            if (
+                ($cosmosProduct['description'] ?? null)
+                && preg_match('/^Produto\s+\d+$/u', $productName)
+            ) {
+                $resolvedProductName = (string) $cosmosProduct['description'];
+            }
+
             $product = Product::query()->create([
-                'name' => $productName,
-                'original_name' => $productName,
+                'name' => $resolvedProductName,
+                'original_name' => $resolvedProductName,
                 'barcode' => $barcode !== '' ? $barcode : null,
+                'image' => $cosmosProduct['thumbnail'] ?? null,
             ]);
         } elseif ($barcode !== '' && ! $product->barcode) {
             $product->update(['barcode' => $barcode]);
@@ -240,11 +255,24 @@ class SharedShoppingListController extends Controller
             ->where('barcode', $cleanBarcode)
             ->first();
 
+        $cosmosProduct = null;
+        if (! $product && $cleanBarcode !== '') {
+            $cosmosProduct = $this->fetchCosmosProduct($cleanBarcode);
+        }
+
+        $resolvedName = $product?->name
+            ?? ($cosmosProduct['description'] ?? null)
+            ?? ('Produto ' . $cleanBarcode);
+
         return response()->json([
             'barcode' => $cleanBarcode,
-            'found' => $product !== null,
-            'product_name' => $product?->name ?? null,
-            'suggested_name' => $product?->name ?? ('Produto ' . $cleanBarcode),
+            'found' => $product !== null || $cosmosProduct !== null,
+            'product_name' => $resolvedName,
+            'suggested_name' => $resolvedName,
+            'thumbnail' => $product?->image ?: ($cosmosProduct['thumbnail'] ?? null),
+            'brand_name' => $cosmosProduct['brand_name'] ?? null,
+            'avg_price' => $cosmosProduct['avg_price'] ?? null,
+            'source' => $product ? 'local' : ($cosmosProduct ? 'cosmos' : 'none'),
         ]);
     }
 
@@ -377,6 +405,55 @@ class SharedShoppingListController extends Controller
             ->value('invoice_items.unit_price');
 
         return $lastPrice !== null ? (float) $lastPrice : null;
+    }
+
+    private function fetchCosmosProduct(string $barcode): ?array
+    {
+        $cleanBarcode = trim($barcode);
+        $token = (string) config('services.cosmos.token', '');
+
+        if ($cleanBarcode === '' || $token === '') {
+            return null;
+        }
+
+        $baseUrl = (string) config('services.cosmos.base_url', 'https://api.cosmos.bluesoft.com.br');
+        $timeout = (int) config('services.cosmos.timeout', 10);
+        $userAgent = (string) config('services.cosmos.user_agent', 'Cosmos-API-Request');
+
+        try {
+            $response = Http::baseUrl($baseUrl)
+                ->timeout($timeout > 0 ? $timeout : 10)
+                ->acceptJson()
+                ->withHeaders([
+                    'X-Cosmos-Token' => $token,
+                    'User-Agent' => $userAgent,
+                ])
+                ->get('/gtins/' . rawurlencode($cleanBarcode) . '.json');
+
+            if (! $response->successful()) {
+                return null;
+            }
+
+            $payload = $response->json();
+            if (! is_array($payload)) {
+                return null;
+            }
+
+            $description = isset($payload['description']) ? trim((string) $payload['description']) : '';
+
+            return [
+                'description' => $description !== '' ? $description : null,
+                'thumbnail' => isset($payload['thumbnail']) && $payload['thumbnail'] !== ''
+                    ? (string) $payload['thumbnail']
+                    : null,
+                'brand_name' => isset($payload['brand']['name']) && $payload['brand']['name'] !== ''
+                    ? (string) $payload['brand']['name']
+                    : null,
+                'avg_price' => isset($payload['avg_price']) ? (float) $payload['avg_price'] : null,
+            ];
+        } catch (\Throwable) {
+            return null;
+        }
     }
 
     private function escapeIcsText(string $value): string

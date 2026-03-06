@@ -78,4 +78,11 @@ return [
         'redirect' => env('GOOGLE_REDIRECT_URI'),
     ],
 
+    'cosmos' => [
+        'base_url' => env('COSMOS_BASE_URL', 'https://api.cosmos.bluesoft.com.br'),
+        'token' => env('COSMOS_TOKEN'),
+        'timeout' => (int) env('COSMOS_TIMEOUT', 10),
+        'user_agent' => env('COSMOS_USER_AGENT', 'Cosmos-API-Request'),
+    ],
+
 ];
