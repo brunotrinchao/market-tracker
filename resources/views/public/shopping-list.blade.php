@@ -870,9 +870,12 @@
 
             const startScanner = async () => {
                 if (!navigator.mediaDevices?.getUserMedia || !scanVideo) {
-                    openProductModal();
-                    setTimeout(() => modalBarcode?.focus(), 60);
-                    alert('Este navegador não permite abrir câmera aqui. Digite o código manualmente.');
+                    scanModal.style.display = 'flex';
+                    if (scanManualBarcode) {
+                        scanManualBarcode.value = '';
+                        setTimeout(() => scanManualBarcode.focus(), 60);
+                    }
+                    alert('Este navegador não permite abrir câmera aqui. Digite o código manualmente abaixo.');
                     return;
                 }
 
@@ -917,10 +920,13 @@
                     }
                 } catch (error) {
                     stopScanner();
-                    openProductModal();
-                    setTimeout(() => modalBarcode?.focus(), 60);
+                    scanModal.style.display = 'flex';
+                    if (scanManualBarcode) {
+                        scanManualBarcode.value = '';
+                        setTimeout(() => scanManualBarcode.focus(), 60);
+                    }
                     const message = error?.message ? String(error.message) : 'Erro desconhecido.';
-                    alert('Não foi possível abrir a câmera. Erro: ' + message + '. Verifique permissão de câmera no navegador.');
+                    alert('Não foi possível abrir a câmera. Erro: ' + message + '. Digite o código manualmente abaixo.');
                 }
             };
 

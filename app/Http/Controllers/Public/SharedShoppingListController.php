@@ -119,10 +119,12 @@ class SharedShoppingListController extends Controller
             $product = Product::query()->find((int) $validated['product_id']);
         }
 
-        if (! $product && $barcode !== '') {
-            $product = Product::query()->where('barcode', $barcode)->first();
-
+        if ($barcode !== '') {
             if (! $product) {
+                $product = Product::query()->where('barcode', $barcode)->first();
+            }
+
+            if (! $product || ! $product->image) {
                 $cosmosProduct = $this->fetchCosmosProduct($barcode);
             }
         }
@@ -148,8 +150,20 @@ class SharedShoppingListController extends Controller
                 'barcode' => $barcode !== '' ? $barcode : null,
                 'image' => $cosmosProduct['thumbnail'] ?? null,
             ]);
-        } elseif ($barcode !== '' && ! $product->barcode) {
-            $product->update(['barcode' => $barcode]);
+        } else {
+            $productUpdates = [];
+
+            if ($barcode !== '' && ! $product->barcode) {
+                $productUpdates['barcode'] = $barcode;
+            }
+
+            if (! $product->image && ($cosmosProduct['thumbnail'] ?? null)) {
+                $productUpdates['image'] = (string) $cosmosProduct['thumbnail'];
+            }
+
+            if ($productUpdates !== []) {
+                $product->update($productUpdates);
+            }
         }
 
         $forcedMarketId = filled($validated['market_id'] ?? null) ? (int) $validated['market_id'] : null;
@@ -435,9 +449,7 @@ class SharedShoppingListController extends Controller
             }
 
             $payload = $response->json();
-            if (! is_array($payload)) {
-                return null;
-            }
+
 
             $description = isset($payload['description']) ? trim((string) $payload['description']) : '';
 
