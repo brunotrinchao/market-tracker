@@ -1,11 +1,5 @@
 <style>
     @media (max-width: 768px) {
-        .fi-page,
-        .fi-main,
-        .fi-main-ctn {
-            padding-inline: 0.75rem;
-        }
-
         .fi-topbar {
             position: sticky;
             top: 0;
@@ -38,11 +32,7 @@
         .fi-ta-cell,
         .fi-ta-col,
         .fi-ta-record {
-            font-size: 0.92rem;
-        }
-
-        .fi-ta-record {
-            padding-block: 0.35rem;
+            font-size: 1rem;
         }
 
         .fi-tabs-item-btn,
@@ -62,12 +52,6 @@
             min-height: 100dvh;
             border-radius: 0;
             margin: 0;
-        }
-
-        .fi-modal .fi-modal-header,
-        .fi-modal .fi-modal-content,
-        .fi-modal .fi-modal-footer {
-            padding-inline: 0.9rem;
         }
 
         .fi-modal .fi-modal-footer {
