@@ -33,6 +33,9 @@ class AdminPanelProvider extends PanelProvider
             ->id('admin')
             ->path('')
             ->login()
+            ->brandLogo(asset('images/market-tracker-logo.png'))
+            ->brandLogoHeight('2.4rem')
+            ->favicon(asset('images/favicon/favicon.ico'))
             ->colors([
                 'primary' => Color::Amber,
             ])
@@ -65,6 +68,10 @@ class AdminPanelProvider extends PanelProvider
             ->authMiddleware([
                 Authenticate::class,
             ])
+            ->renderHook(
+                PanelsRenderHook::HEAD_START,
+                fn () => view('filament.components.favicons'),
+            )
             ->renderHook(
                 PanelsRenderHook::HEAD_END,
                 fn () => view('filament.components.mobile-first-overrides'),
