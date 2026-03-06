@@ -114,11 +114,11 @@ class GoogleAuthController extends Controller
             } else {
                 $updates = [];
 
-                if (! $user->google_id) {
+                if (! $user->google_id || $user->google_id !== $googleId) {
                     $updates['google_id'] = $googleId;
                 }
 
-                if (! $user->google_avatar && $avatar !== '') {
+                if ($avatar !== '' && $user->google_avatar !== $avatar) {
                     $updates['google_avatar'] = $avatar;
                 }
 
