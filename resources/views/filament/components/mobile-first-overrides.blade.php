@@ -66,8 +66,7 @@
             font-size: 1rem;
         }
 
-        .fi-ta-table thead,
-        .fi-ta-header {
+        .fi-ta-table thead {
             display: none;
         }
 
