@@ -4,8 +4,11 @@ namespace App\Http\Controllers\Public;
 
 use App\Http\Controllers\Controller;
 use App\Models\InvoiceItem;
+use App\Models\Market;
 use App\Models\Product;
 use App\Models\ShoppingList;
+use App\Models\ShoppingListItem;
+use Illuminate\Http\JsonResponse;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Http\Response;
@@ -23,20 +26,50 @@ class SharedShoppingListController extends Controller
             ->firstOrFail();
 
         $groups = [];
+        $selectedMarketIds = $shoppingList->items
+            ->pluck('market_id')
+            ->filter(fn ($value): bool => $value !== null)
+            ->map(fn ($value): int => (int) $value)
+            ->unique()
+            ->values();
+
+        $selectedMarkets = Market::query()
+            ->with('addresses')
+            ->whereIn('id', $selectedMarketIds)
+            ->get()
+            ->keyBy('id');
 
         foreach ($shoppingList->items as $item) {
             if (! $item->product) {
                 continue;
             }
 
-            $offer = $this->resolveOfferForProduct((int) $item->product_id, $item->market_id ? (int) $item->market_id : null);
+            $selectedMarketId = $item->market_id ? (int) $item->market_id : null;
+            $offer = $this->resolveOfferForProduct((int) $item->product_id, $selectedMarketId);
+            $fallbackLastPrice = $this->resolveLastPriceForProduct((int) $item->product_id);
 
-            $marketId = (string) ($offer['market_id'] ?? 'sem_mercado');
-            $marketName = $offer['market_name'] ?? 'Sem supermercado';
-            $marketAddress = $offer['market_address'] ?? '-';
+            $selectedMarket = $selectedMarketId ? $selectedMarkets->get($selectedMarketId) : null;
+
+            $selectedMarketAddress = '-';
+            if ($selectedMarket) {
+                $address = $selectedMarket->addresses->first();
+                $selectedMarketAddress = $address
+                    ? trim(implode(', ', array_filter([
+                        trim(implode(', ', array_filter([$address->street, $address->number]))),
+                        $address->neighborhood,
+                        trim(implode(' - ', array_filter([$address->city, $address->state]))),
+                    ])))
+                    : '-';
+            }
+
+            $marketId = (string) ($selectedMarketId ?? ($offer['market_id'] ?? 'sem_mercado'));
+            $marketName = $selectedMarket?->name ?? ($offer['market_name'] ?? 'Sem supermercado');
+            $marketAddress = $selectedMarketAddress !== '-' ? $selectedMarketAddress : ($offer['market_address'] ?? '-');
+            $unitPrice = is_array($offer) ? ($offer['unit_price'] ?? null) : null;
+            $displayUnitPrice = $unitPrice ?? $fallbackLastPrice;
 
             $groups[$marketId] ??= [
-                'market_id' => $offer['market_id'] ?? null,
+                'market_id' => $selectedMarketId ?? ($offer['market_id'] ?? null),
                 'market_name' => $marketName,
                 'market_address' => $marketAddress,
                 'items' => [],
@@ -46,11 +79,11 @@ class SharedShoppingListController extends Controller
                 'id' => (int) $item->id,
                 'name' => (string) $item->product->name,
                 'quantity' => number_format((float) $item->quantity, 3, ',', '.'),
-                'unit_price' => $offer['unit_price'] !== null
-                    ? 'R$ ' . number_format((float) $offer['unit_price'], 2, ',', '.')
+                'unit_price' => $displayUnitPrice !== null
+                    ? 'R$ ' . number_format((float) $displayUnitPrice, 2, ',', '.')
                     : '-',
-                'subtotal' => $offer['unit_price'] !== null
-                    ? 'R$ ' . number_format((float) $offer['unit_price'] * (float) $item->quantity, 2, ',', '.')
+                'subtotal' => $displayUnitPrice !== null
+                    ? 'R$ ' . number_format((float) $displayUnitPrice * (float) $item->quantity, 2, ',', '.')
                     : '-',
             ];
         }
@@ -68,6 +101,7 @@ class SharedShoppingListController extends Controller
             ->firstOrFail();
 
         $validated = $request->validate([
+            'product_id' => ['nullable', 'integer'],
             'product_name' => ['required', 'string', 'max:255'],
             'barcode' => ['nullable', 'string', 'max:64'],
             'quantity' => ['required', 'numeric', 'min:0.001'],
@@ -79,7 +113,11 @@ class SharedShoppingListController extends Controller
 
         $product = null;
 
-        if ($barcode !== '') {
+        if (filled($validated['product_id'] ?? null)) {
+            $product = Product::query()->find((int) $validated['product_id']);
+        }
+
+        if (! $product && $barcode !== '') {
             $product = Product::query()->where('barcode', $barcode)->first();
         }
 
@@ -99,14 +137,25 @@ class SharedShoppingListController extends Controller
             $product->update(['barcode' => $barcode]);
         }
 
-        $existing = $shoppingList->items()
-            ->where('product_id', $product->id)
-            ->first();
-
         $forcedMarketId = filled($validated['market_id'] ?? null) ? (int) $validated['market_id'] : null;
         $cheapestMarketId = $this->resolveCheapestMarketId((int) $product->id);
         $targetMarketId = $forcedMarketId ?? $cheapestMarketId;
         $canPersistMarket = Schema::hasColumn('shopping_list_items', 'market_id');
+        $itemsQuery = $shoppingList->items()->where('product_id', $product->id);
+
+        if ($canPersistMarket && $targetMarketId !== null) {
+            $existing = (clone $itemsQuery)
+                ->where('market_id', $targetMarketId)
+                ->first();
+
+            if (! $existing) {
+                $existing = (clone $itemsQuery)
+                    ->whereNull('market_id')
+                    ->first();
+            }
+        } else {
+            $existing = $itemsQuery->first();
+        }
 
         if ($existing) {
             $payload = [
@@ -140,7 +189,46 @@ class SharedShoppingListController extends Controller
             ->with('shared_list_success', 'Produto adicionado com sucesso.');
     }
 
-    public function lookupBarcode(string $token, string $barcode): Response
+    public function searchProducts(string $token, Request $request): JsonResponse
+    {
+        ShoppingList::query()
+            ->where('share_token', $token)
+            ->firstOrFail();
+
+        $q = trim((string) $request->query('q', ''));
+        $marketId = (int) $request->query('market_id', 0);
+
+        if (mb_strlen($q) < 2 || $marketId <= 0) {
+            return response()->json(['data' => []]);
+        }
+
+        $products = Product::query()
+            ->join('market_products as mp', 'products.id', '=', 'mp.product_id')
+            ->where('mp.market_id', $marketId)
+            ->where(function ($query) use ($q): void {
+                $query
+                    ->where('products.name', 'like', '%' . $q . '%')
+                    ->orWhere('products.original_name', 'like', '%' . $q . '%')
+                    ->orWhere('products.barcode', 'like', '%' . $q . '%');
+            })
+            ->orderBy('products.name')
+            ->limit(12)
+            ->get(['products.id', 'products.name', 'products.barcode', 'products.image'])
+            ->unique('id')
+            ->values();
+
+        return response()->json([
+            'data' => $products->map(fn (Product $product): array => [
+                'id' => (int) $product->id,
+                'name' => (string) $product->name,
+                'barcode' => $product->barcode ? (string) $product->barcode : null,
+                'image' => $product->image ? (string) $product->image : null,
+                'last_price' => $this->resolveLastPriceForProduct((int) $product->id),
+            ])->values()->all(),
+        ]);
+    }
+
+    public function lookupBarcode(string $token, string $barcode): JsonResponse
     {
         ShoppingList::query()
             ->where('share_token', $token)
@@ -158,6 +246,23 @@ class SharedShoppingListController extends Controller
             'product_name' => $product?->name ?? null,
             'suggested_name' => $product?->name ?? ('Produto ' . $cleanBarcode),
         ]);
+    }
+
+    public function removeItem(string $token, ShoppingListItem $item): RedirectResponse
+    {
+        $shoppingList = ShoppingList::query()
+            ->where('share_token', $token)
+            ->firstOrFail();
+
+        if ((int) $item->shopping_list_id !== (int) $shoppingList->id) {
+            abort(404);
+        }
+
+        $item->delete();
+
+        return redirect()
+            ->route('shared-shopping-lists.show', ['token' => $token])
+            ->with('shared_list_success', 'Produto removido da lista.');
     }
 
     public function appleCalendarIcs(string $token): Response
@@ -259,6 +364,19 @@ class SharedShoppingListController extends Controller
             ->value('mp.market_id');
 
         return $marketId !== null ? (int) $marketId : null;
+    }
+
+    private function resolveLastPriceForProduct(int $productId): ?float
+    {
+        $lastPrice = InvoiceItem::query()
+            ->join('market_products as mp', 'invoice_items.market_product_id', '=', 'mp.id')
+            ->join('invoices as inv', 'invoice_items.invoice_id', '=', 'inv.id')
+            ->where('mp.product_id', $productId)
+            ->orderByDesc('inv.issued_at')
+            ->orderByDesc('invoice_items.created_at')
+            ->value('invoice_items.unit_price');
+
+        return $lastPrice !== null ? (float) $lastPrice : null;
     }
 
     private function escapeIcsText(string $value): string

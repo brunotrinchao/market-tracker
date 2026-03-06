@@ -10,7 +10,6 @@ use Filament\Forms\Components\DatePicker;
 use Filament\Forms\Components\Textarea;
 use Filament\Forms\Components\TextInput;
 use Filament\Resources\Pages\ViewRecord;
-use Illuminate\Support\Carbon;
 use Illuminate\Support\HtmlString;
 use Illuminate\Support\Str;
 
@@ -33,8 +32,6 @@ class ViewShoppingList extends ViewRecord
                 ->modalContent(function (): HtmlString {
                     $shareToken = $this->ensureShareToken();
                     $publicUrl = route('shared-shopping-lists.show', ['token' => $shareToken]);
-                    $googleCalendarUrl = $this->buildGoogleCalendarUrl($publicUrl);
-                    $appleCalendarUrl = route('shared-shopping-lists.calendar.ics', ['token' => $shareToken]);
                     $text = $this->buildShareText();
                     $encoded = urlencode($text);
                     $jsonText = json_encode($text, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES);
@@ -51,12 +48,6 @@ class ViewShoppingList extends ViewRecord
         </button>
         <a href="https://wa.me/?text={$encoded}" target="_blank" style="padding:8px 12px;border-radius:8px;border:1px solid #16a34a;background:#16a34a;color:#fff;text-decoration:none;">
             WhatsApp
-        </a>
-        <a href="{$googleCalendarUrl}" target="_blank" style="padding:8px 12px;border-radius:8px;border:1px solid #2563eb;background:#2563eb;color:#fff;text-decoration:none;">
-            Google Agenda
-        </a>
-        <a href="{$appleCalendarUrl}" target="_blank" style="padding:8px 12px;border-radius:8px;border:1px solid #0f766e;background:#0f766e;color:#fff;text-decoration:none;">
-            Apple Calendar (.ics)
         </a>
         <a href="{$publicUrl}" target="_blank" style="padding:8px 12px;border-radius:8px;border:1px solid #d1d5db;background:#fff;color:#111827;text-decoration:none;">
             Abrir link público
@@ -173,25 +164,6 @@ HTML;
         $this->record->refresh();
 
         return (string) $this->record->share_token;
-    }
-
-    private function buildGoogleCalendarUrl(string $publicUrl): string
-    {
-        $date = $this->record->shopping_date
-            ? Carbon::parse($this->record->shopping_date)
-            : Carbon::parse($this->record->created_at ?? now());
-
-        $start = $date->copy()->startOfDay();
-        $end = $start->copy()->addDay();
-
-        $params = [
-            'action' => 'TEMPLATE',
-            'text' => 'Lista de compras - ' . $this->record->name,
-            'dates' => $start->format('Ymd') . '/' . $end->format('Ymd'),
-            'details' => 'Checklist público: ' . $publicUrl,
-        ];
-
-        return 'https://calendar.google.com/calendar/render?' . http_build_query($params);
     }
 
     private function resolveBestOfferForProduct(int $productId): ?array

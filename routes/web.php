@@ -18,6 +18,12 @@ Route::get('/shared-shopping-lists/{token}', [SharedShoppingListController::clas
     ->name('shared-shopping-lists.show');
 Route::post('/shared-shopping-lists/{token}/items', [SharedShoppingListController::class, 'storeItem'])
     ->name('shared-shopping-lists.items.store');
+Route::post('/shared-shopping-lists/{token}/items/{item}/remove', [SharedShoppingListController::class, 'removeItem'])
+    ->name('shared-shopping-lists.items.remove');
+Route::get('/shared-shopping-lists/{token}/products/search', [SharedShoppingListController::class, 'searchProducts'])
+    ->name('shared-shopping-lists.products.search');
+Route::get('/shared-shopping-lists/{token}/barcode/{barcode}', [SharedShoppingListController::class, 'lookupBarcode'])
+    ->name('shared-shopping-lists.barcode.lookup');
 Route::get('/shared-shopping-lists/{token}/calendar.ics', [SharedShoppingListController::class, 'appleCalendarIcs'])
     ->name('shared-shopping-lists.calendar.ics');
 
