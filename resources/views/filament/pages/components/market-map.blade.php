@@ -3,6 +3,61 @@
 @endphp
 
 <div class="p-4" wire:ignore>
+    <style>
+        .market-map-modal-layout {
+            position: relative;
+        }
+
+        .market-map-overlay-list {
+            position: absolute;
+            top: 12px;
+            right: 12px;
+            width: 25%;
+            min-width: 260px;
+            max-width: 360px;
+            height: calc(100% - 24px);
+            overflow-y: auto;
+            border: 1px solid #e5e7eb;
+            border-radius: 12px;
+            background: rgba(255, 255, 255, 0.88);
+            padding: 8px;
+            z-index: 500;
+            box-shadow: 0 12px 24px rgba(15, 23, 42, 0.18);
+        }
+
+        .market-map-overlay-toggle {
+            position: absolute;
+            top: 12px;
+            right: 12px;
+            z-index: 510;
+            border: 1px solid #d1d5db;
+            background: #fff;
+            color: #111827;
+            border-radius: 10px;
+            width: 36px;
+            height: 36px;
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            padding: 0;
+            font-size: 18px;
+            font-weight: 700;
+            line-height: 1;
+            box-shadow: 0 8px 18px rgba(15, 23, 42, 0.15);
+            cursor: pointer;
+        }
+
+        @media (max-width: 1023px) {
+            .market-map-overlay-list {
+                display: none;
+            }
+
+            .market-map-overlay-toggle {
+                display: none;
+            }
+        }
+    </style>
+
     <div
         x-data="{
             markets: @js($markets),
@@ -17,6 +72,7 @@
             userLocationError: null,
             requestingUserLocation: false,
             userLocationMarker: null,
+            isMarketsListCollapsed: false,
             isSecureOrigin() {
                 const host = window.location.hostname;
                 return window.isSecureContext || host === 'localhost' || host === '127.0.0.1';
@@ -334,52 +390,57 @@
     >
         <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
 
-        <div style="display:grid;gap:12px;grid-template-columns:minmax(0,2fr) minmax(300px,1fr);align-items:start;">
-            <div>
-                <div id="{{ $mapId }}" style="height: 500px; border-radius: 12px;"></div>
-            </div>
+        <div class="market-map-modal-layout">
+            <div id="{{ $mapId }}" style="height: 500px; border-radius: 12px;"></div>
 
-            <div>
-                <div style="height:500px;overflow-y:auto;border:1px solid #e5e7eb;border-radius:12px;background:#fff;padding:8px;">
-                    <p style="padding:0 8px 8px 8px;font-size:12px;font-weight:600;letter-spacing:.04em;text-transform:uppercase;color:#6b7280;">
-                        Mercados cadastrados
-                    </p>
+            <button
+                type="button"
+                class="market-map-overlay-toggle"
+                @click="isMarketsListCollapsed = !isMarketsListCollapsed"
+                :aria-label="isMarketsListCollapsed ? 'Mostrar mercados' : 'Recolher mercados'"
+                :title="isMarketsListCollapsed ? 'Mostrar mercados' : 'Recolher mercados'"
+                x-text="isMarketsListCollapsed ? '◀' : '▶'"
+            ></button>
 
-                    <template x-if="resolvedMarkets.length === 0">
-                        <p style="padding:0 8px;font-size:14px;color:#6b7280;">Nenhum mercado com coordenadas encontrado.</p>
-                    </template>
+            <div class="market-map-overlay-list" x-show="!isMarketsListCollapsed" x-transition.opacity.duration.150ms>
+                <p style="padding:0 8px 8px 8px;font-size:12px;font-weight:600;letter-spacing:.04em;text-transform:uppercase;color:#6b7280;">
+                    Mercados cadastrados
+                </p>
 
-                    <div style="display:grid;gap:8px;">
-                        <template x-for="(market, index) in resolvedMarkets" :key="market.id">
-                            <button
-                                type="button"
-                                @click="focusMarket(market.id)"
-                                style="width:100%;padding:12px 8px;text-align:left;cursor:pointer;transition:all .15s ease;background:#ffffff;border:1px solid #e5e7eb;border-radius:10px;"
-                                :style="Number(selectedMarketId) === Number(market.id)
-                                    ? 'background:#eff6ff;border-color:#bfdbfe;'
-                                    : 'background:#ffffff;border-color:#e5e7eb;'"
-                            >
-                                <div style="display:grid;grid-template-columns:56px minmax(0,1fr);gap:10px;align-items:center;">
-                                    <div style="display:flex;align-items:center;justify-content:center;">
-                                        <template x-if="market.image">
-                                            <img :src="market.image" :alt="market.name" style="width:52px;height:52px;border-radius:10px;object-fit:cover;border:1px solid #e5e7eb;" />
-                                        </template>
-                                        <template x-if="!market.image">
-                                            <div style="width:52px;height:52px;border-radius:10px;background:#e5e7eb;color:#374151;display:flex;align-items:center;justify-content:center;font-size:12px;font-weight:700;" x-text="marketInitials(market.name)"></div>
-                                        </template>
-                                    </div>
+                <template x-if="resolvedMarkets.length === 0">
+                    <p style="padding:0 8px;font-size:14px;color:#6b7280;">Nenhum mercado com coordenadas encontrado.</p>
+                </template>
 
-                                    <div style="min-width:0;">
-                                        <div style="display:flex;align-items:center;justify-content:space-between;gap:8px;">
-                                            <div style="font-size:14px;font-weight:600;color:#1f2937;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;" x-text="market.name"></div>
-                                            <div style="font-size:12px;font-weight:700;color:#2563eb;white-space:nowrap;" x-text="marketDistanceLabel(market) ?? '-'"></div>
-                                        </div>
-                                        <div style="font-size:12px;color:#6b7280;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;" x-text="market.address"></div>
-                                    </div>
+                <div style="display:grid;gap:8px;">
+                    <template x-for="(market, index) in resolvedMarkets" :key="market.id">
+                        <button
+                            type="button"
+                            @click="focusMarket(market.id)"
+                            style="width:100%;padding:12px 8px;text-align:left;cursor:pointer;transition:all .15s ease;background:#ffffff;border:1px solid #e5e7eb;border-radius:10px;"
+                            :style="Number(selectedMarketId) === Number(market.id)
+                                ? 'background:#eff6ff;border-color:#bfdbfe;'
+                                : 'background:#ffffff;border-color:#e5e7eb;'"
+                        >
+                            <div style="display:grid;grid-template-columns:56px minmax(0,1fr);gap:10px;align-items:center;">
+                                <div style="display:flex;align-items:center;justify-content:center;">
+                                    <template x-if="market.image">
+                                        <img :src="market.image" :alt="market.name" style="width:52px;height:52px;border-radius:10px;object-fit:cover;border:1px solid #e5e7eb;" />
+                                    </template>
+                                    <template x-if="!market.image">
+                                        <div style="width:52px;height:52px;border-radius:10px;background:#e5e7eb;color:#374151;display:flex;align-items:center;justify-content:center;font-size:12px;font-weight:700;" x-text="marketInitials(market.name)"></div>
+                                    </template>
                                 </div>
-                            </button>
-                        </template>
-                    </div>
+
+                                <div style="min-width:0;">
+                                    <div style="display:flex;align-items:center;justify-content:space-between;gap:8px;">
+                                        <div style="font-size:14px;font-weight:600;color:#1f2937;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;" x-text="market.name"></div>
+                                        <div style="font-size:12px;font-weight:700;color:#2563eb;white-space:nowrap;" x-text="marketDistanceLabel(market) ?? '-'"></div>
+                                    </div>
+                                    <div style="font-size:12px;color:#6b7280;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;" x-text="market.address"></div>
+                                </div>
+                            </div>
+                        </button>
+                    </template>
                 </div>
             </div>
         </div>

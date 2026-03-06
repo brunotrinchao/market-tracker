@@ -3,7 +3,6 @@
 namespace App\Providers\Filament;
 
 use App\Filament\Pages\Dashboard;
-use App\Filament\Resources\Invoices\InvoiceResource;
 use App\Filament\Widgets\InvoiceImportsTrendChart;
 use App\Filament\Widgets\ItemsByMarketChart;
 use App\Filament\Widgets\MarketTrackerStatsOverview;
@@ -68,11 +67,7 @@ class AdminPanelProvider extends PanelProvider
             ])
             ->renderHook(
                 PanelsRenderHook::BODY_END,
-                fn () => view('filament.components.floating-new-invoice-button', [
-                    'url' => InvoiceResource::getUrl('index', [
-                        'action' => 'importInvoice',
-                    ]),
-                ]),
+                fn () => view('filament.components.floating-new-invoice-button'),
             );
     }
 }
