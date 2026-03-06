@@ -35,6 +35,75 @@
             font-size: 1rem;
         }
 
+        .fi-ta-table thead,
+        .fi-ta-header {
+            display: none;
+        }
+
+        .fi-ta,
+        .fi-ta-content,
+        .fi-ta-table {
+            border: 0 !important;
+            box-shadow: none !important;
+        }
+
+        .fi-ta-table tbody tr,
+        .fi-ta-record {
+            border: 0 !important;
+            border-top: 0 !important;
+            border-bottom: 0 !important;
+            outline: 0 !important;
+            box-shadow: none !important;
+            background: transparent !important;
+        }
+
+        .fi-ta-table tr::before,
+        .fi-ta-table tr::after,
+        .fi-ta-record::before,
+        .fi-ta-record::after {
+            border: 0 !important;
+            border-top: 0 !important;
+            border-bottom: 0 !important;
+            box-shadow: none !important;
+            content: none !important;
+        }
+
+        .fi-ta-table > tbody,
+        .fi-ta-table > tbody > tr,
+        .fi-ta-table > tbody > tr > td {
+            border: 0 !important;
+            border-top: 0 !important;
+            border-bottom: 0 !important;
+        }
+
+        .fi-ta-table td::before,
+        .fi-ta-table td::after,
+        .fi-ta-cell::before,
+        .fi-ta-cell::after {
+            border: 0 !important;
+            border-top: 0 !important;
+            border-bottom: 0 !important;
+            box-shadow: none !important;
+            content: none !important;
+        }
+
+        .fi-ta-table tbody td,
+        .fi-ta-cell,
+        .fi-ta-row,
+        .fi-ta-ctn,
+        .fi-ta-table > :is(tbody, tfoot) > tr > td {
+            border: 0 !important;
+            padding: 0 !important;
+        }
+
+        .fi-divider,
+        .fi-section-content-ctn,
+        .divide-y > :not([hidden]) ~ :not([hidden]) {
+            --tw-divide-y-reverse: 0 !important;
+            border-top-width: 0 !important;
+            border-bottom-width: 0 !important;
+        }
+
         .fi-tabs-item-btn,
         .fi-breadcrumbs a {
             min-height: 40px;
