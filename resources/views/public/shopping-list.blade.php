@@ -279,6 +279,17 @@
             background: #000;
             border-radius: 10px;
         }
+        .scan-status {
+            margin: 0;
+            font-size: 12px;
+            color: var(--muted);
+        }
+        .scan-toolbar {
+            display: grid;
+            gap: 8px;
+            grid-template-columns: 1fr auto;
+            align-items: end;
+        }
         .add-btn {
             width: 38px;
             height: 38px;
@@ -448,6 +459,14 @@
             <strong style="font-size:15px;">Leitor de código de barras</strong>
             <p style="margin:0;font-size:12px;color:var(--muted);">Aponte a câmera para o código. Se não funcionar, digite manualmente.</p>
             <video id="scan-video" autoplay playsinline muted></video>
+            <p class="scan-status" id="scan-status">Iniciando câmera...</p>
+            <div class="scan-toolbar">
+                <div class="field">
+                    <label for="scan_camera_select">Câmera</label>
+                    <select id="scan_camera_select" class="btn" style="width:100%;justify-content:flex-start;"></select>
+                </div>
+                <button class="btn" type="button" id="scan-camera-switch-btn">Trocar</button>
+            </div>
             <div class="product-grid">
                 <div class="field">
                     <label for="scan_manual_barcode">Código manual</label>
@@ -666,6 +685,9 @@
             const scanModal = document.getElementById('scan-modal');
             const scanCloseBtn = document.getElementById('scan-close-btn');
             const scanVideo = document.getElementById('scan-video');
+            const scanStatus = document.getElementById('scan-status');
+            const scanCameraSelect = document.getElementById('scan_camera_select');
+            const scanCameraSwitchBtn = document.getElementById('scan-camera-switch-btn');
             const scanManualBarcode = document.getElementById('scan_manual_barcode');
             const scanManualSubmitBtn = document.getElementById('scan-manual-submit-btn');
             const hiddenMarketId = document.getElementById('hidden_market_id');
@@ -678,6 +700,9 @@
             let detectorInterval = null;
             let zxingControls = null;
             let zxingLoadingPromise = null;
+            let scanDeviceId = '';
+            let lastDetectedCode = '';
+            let lastDetectedAt = 0;
             let currentMarketId = '';
             let currentMarketName = '';
             let searchDebounceTimer = null;
@@ -696,6 +721,11 @@
             const openRemoveConfirmModal = (form) => {
                 removeTargetForm = form;
                 removeConfirmModal.style.display = 'flex';
+            };
+            const setScanStatus = (message) => {
+                if (scanStatus) {
+                    scanStatus.textContent = message;
+                }
             };
 
             const submitSharedItem = ({ marketId, productId, productName, barcode, quantity }) => {
@@ -754,15 +784,35 @@
                 return zxingLoadingPromise;
             };
 
-            const openCameraStream = async () => {
+            const openCameraStream = async (preferredDeviceId = '') => {
                 const constraintsList = [
-                    { video: { facingMode: { exact: 'environment' } }, audio: false },
-                    { video: { facingMode: { ideal: 'environment' } }, audio: false },
+                    preferredDeviceId !== ''
+                        ? { video: { deviceId: { exact: preferredDeviceId } }, audio: false }
+                        : null,
+                    {
+                        video: {
+                            facingMode: { exact: 'environment' },
+                            width: { ideal: 1920 },
+                            height: { ideal: 1080 },
+                        },
+                        audio: false,
+                    },
+                    {
+                        video: {
+                            facingMode: { ideal: 'environment' },
+                            width: { ideal: 1280 },
+                            height: { ideal: 720 },
+                        },
+                        audio: false,
+                    },
                     { video: true, audio: false },
                 ];
 
                 let lastError = null;
                 for (const constraints of constraintsList) {
+                    if (!constraints) {
+                        continue;
+                    }
                     try {
                         return await navigator.mediaDevices.getUserMedia(constraints);
                     } catch (error) {
@@ -771,6 +821,42 @@
                 }
 
                 throw lastError || new Error('Falha ao abrir câmera.');
+            };
+
+            const populateCameraOptions = async () => {
+                if (!navigator.mediaDevices?.enumerateDevices || !scanCameraSelect) {
+                    return;
+                }
+
+                try {
+                    const devices = await navigator.mediaDevices.enumerateDevices();
+                    const videoInputs = devices.filter((device) => device.kind === 'videoinput');
+
+                    scanCameraSelect.innerHTML = '';
+
+                    videoInputs.forEach((device, index) => {
+                        const option = document.createElement('option');
+                        option.value = device.deviceId;
+                        option.textContent = device.label || ('Câmera ' + (index + 1));
+                        scanCameraSelect.appendChild(option);
+                    });
+
+                    const preferred = videoInputs.find((device) =>
+                        /back|rear|environment|traseira|externa/i.test(device.label || '')
+                    );
+
+                    if (scanDeviceId && videoInputs.some((device) => device.deviceId === scanDeviceId)) {
+                        scanCameraSelect.value = scanDeviceId;
+                    } else if (preferred) {
+                        scanCameraSelect.value = preferred.deviceId;
+                        scanDeviceId = preferred.deviceId;
+                    } else if (videoInputs[0]) {
+                        scanCameraSelect.value = videoInputs[0].deviceId;
+                        scanDeviceId = videoInputs[0].deviceId;
+                    }
+                } catch (error) {
+                    // No-op: enumeração pode falhar antes de liberar permissão.
+                }
             };
 
             const renderSearchResults = (products) => {
@@ -846,29 +932,34 @@
                 }
             };
 
-            const stopScanner = () => {
+            const releaseScannerResources = () => {
                 if (detectorInterval) {
                     clearInterval(detectorInterval);
                     detectorInterval = null;
-                }
-                if (scanStream) {
-                    scanStream.getTracks().forEach((track) => track.stop());
-                    scanStream = null;
                 }
                 if (zxingControls) {
                     zxingControls.stop();
                     zxingControls = null;
                 }
+                if (scanStream) {
+                    scanStream.getTracks().forEach((track) => track.stop());
+                    scanStream = null;
+                }
                 if (scanVideo) {
                     scanVideo.srcObject = null;
                 }
+            };
+
+            const stopScanner = () => {
+                releaseScannerResources();
                 if (scanManualBarcode) {
                     scanManualBarcode.value = '';
                 }
+                setScanStatus('Iniciando câmera...');
                 scanModal.style.display = 'none';
             };
 
-            const startScanner = async () => {
+            const startScanner = async (preferredDeviceId = '') => {
                 if (!navigator.mediaDevices?.getUserMedia || !scanVideo) {
                     scanModal.style.display = 'flex';
                     if (scanManualBarcode) {
@@ -880,9 +971,20 @@
                 }
 
                 try {
-                    scanStream = await openCameraStream();
+                    releaseScannerResources();
+                    setScanStatus('Abrindo câmera...');
+                    scanStream = await openCameraStream(preferredDeviceId || scanDeviceId);
+
+                    const track = scanStream.getVideoTracks()[0] || null;
+                    const settings = track?.getSettings ? track.getSettings() : null;
+                    if (settings?.deviceId) {
+                        scanDeviceId = settings.deviceId;
+                    }
+
                     scanVideo.srcObject = scanStream;
                     scanModal.style.display = 'flex';
+                    setScanStatus('Aponte para o código de barras...');
+                    await populateCameraOptions();
 
                     if (window.BarcodeDetector) {
                         const detector = new BarcodeDetector({
@@ -896,9 +998,16 @@
 
                             const codes = await detector.detect(scanVideo);
                             if (codes.length > 0 && codes[0].rawValue) {
-                                handleDetectedBarcode(codes[0].rawValue);
+                                const value = String(codes[0].rawValue).trim();
+                                const nowMs = Date.now();
+                                if (value !== '' && (value !== lastDetectedCode || (nowMs - lastDetectedAt) > 1500)) {
+                                    lastDetectedCode = value;
+                                    lastDetectedAt = nowMs;
+                                    setScanStatus('Código detectado: ' + value);
+                                    handleDetectedBarcode(value);
+                                }
                             }
-                        }, 450);
+                        }, 220);
 
                         return;
                     }
@@ -911,21 +1020,30 @@
                             scanVideo,
                             (result) => {
                                 if (result?.getText) {
-                                    handleDetectedBarcode(result.getText());
+                                    const value = String(result.getText()).trim();
+                                    const nowMs = Date.now();
+                                    if (value !== '' && (value !== lastDetectedCode || (nowMs - lastDetectedAt) > 1500)) {
+                                        lastDetectedCode = value;
+                                        lastDetectedAt = nowMs;
+                                        setScanStatus('Código detectado: ' + value);
+                                        handleDetectedBarcode(value);
+                                    }
                                 }
                             }
                         );
                     } catch (libraryError) {
+                        setScanStatus('Leitura automática indisponível. Use código manual.');
                         alert('A câmera foi aberta, mas a leitura automática não está disponível agora. Digite o código manualmente.');
                     }
                 } catch (error) {
-                    stopScanner();
+                    releaseScannerResources();
                     scanModal.style.display = 'flex';
                     if (scanManualBarcode) {
                         scanManualBarcode.value = '';
                         setTimeout(() => scanManualBarcode.focus(), 60);
                     }
                     const message = error?.message ? String(error.message) : 'Erro desconhecido.';
+                    setScanStatus('Não foi possível abrir a câmera.');
                     alert('Não foi possível abrir a câmera. Erro: ' + message + '. Digite o código manualmente abaixo.');
                 }
             };
@@ -990,6 +1108,20 @@
                 }
 
                 handleDetectedBarcode(manualCode);
+            });
+            scanManualBarcode?.addEventListener('keydown', (event) => {
+                if (event.key === 'Enter') {
+                    event.preventDefault();
+                    scanManualSubmitBtn?.click();
+                }
+            });
+            scanCameraSwitchBtn?.addEventListener('click', () => {
+                const selectedId = scanCameraSelect?.value || '';
+                if (!selectedId) {
+                    return;
+                }
+                scanDeviceId = selectedId;
+                startScanner(selectedId);
             });
 
             confirmCancelBtn?.addEventListener('click', closeConfirmModal);
