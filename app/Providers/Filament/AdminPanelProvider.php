@@ -70,6 +70,10 @@ class AdminPanelProvider extends PanelProvider
                 fn () => view('filament.components.mobile-first-overrides'),
             )
             ->renderHook(
+                PanelsRenderHook::AUTH_LOGIN_FORM_AFTER,
+                fn () => view('filament.components.google-login-button'),
+            )
+            ->renderHook(
                 PanelsRenderHook::BODY_END,
                 fn () => view('filament.components.floating-new-invoice-button'),
             );
