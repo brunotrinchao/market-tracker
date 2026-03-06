@@ -447,7 +447,7 @@
         <div class="scan-card">
             <strong style="font-size:15px;">Leitor de código de barras</strong>
             <p style="margin:0;font-size:12px;color:var(--muted);">Aponte a câmera para o código. Se não funcionar, digite manualmente.</p>
-            <video id="scan-video" autoplay playsinline></video>
+            <video id="scan-video" autoplay playsinline muted></video>
             <div style="display:flex;justify-content:flex-end;gap:8px;">
                 <button class="btn" type="button" id="scan-close-btn">Fechar</button>
             </div>
@@ -743,6 +743,25 @@
                 return zxingLoadingPromise;
             };
 
+            const openCameraStream = async () => {
+                const constraintsList = [
+                    { video: { facingMode: { exact: 'environment' } }, audio: false },
+                    { video: { facingMode: { ideal: 'environment' } }, audio: false },
+                    { video: true, audio: false },
+                ];
+
+                let lastError = null;
+                for (const constraints of constraintsList) {
+                    try {
+                        return await navigator.mediaDevices.getUserMedia(constraints);
+                    } catch (error) {
+                        lastError = error;
+                    }
+                }
+
+                throw lastError || new Error('Falha ao abrir câmera.');
+            };
+
             const renderSearchResults = (products) => {
                 if (!searchResults) return;
 
@@ -846,10 +865,7 @@
                 try {
                     scanModal.style.display = 'flex';
                     if (window.BarcodeDetector) {
-                        scanStream = await navigator.mediaDevices.getUserMedia({
-                            video: { facingMode: { ideal: 'environment' } },
-                            audio: false,
-                        });
+                        scanStream = await openCameraStream();
 
                         scanVideo.srcObject = scanStream;
 
@@ -873,8 +889,8 @@
 
                     await ensureZxingLoaded();
                     const codeReader = new window.ZXingBrowser.BrowserMultiFormatReader();
-                    zxingControls = await codeReader.decodeFromVideoDevice(
-                        undefined,
+                    zxingControls = await codeReader.decodeFromConstraints(
+                        { video: { facingMode: { ideal: 'environment' } }, audio: false },
                         scanVideo,
                         (result) => {
                             if (result?.getText) {
@@ -886,7 +902,8 @@
                     stopScanner();
                     openProductModal();
                     setTimeout(() => modalBarcode?.focus(), 60);
-                    alert('Não foi possível abrir a câmera. Verifique permissão da câmera e se o site está em HTTPS.');
+                    const message = error?.message ? String(error.message) : 'Erro desconhecido.';
+                    alert('Não foi possível abrir a câmera. Erro: ' + message + '. Verifique permissão de câmera no navegador.');
                 }
             };
 
