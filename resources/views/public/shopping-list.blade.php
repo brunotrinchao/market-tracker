@@ -57,14 +57,17 @@
                     >+</button>
                 </div>
 
-                <h3 class="section-title">A Fazer</h3>
+                <h3 class="section-title">🛒 A Fazer</h3>
                 <div class="items" data-pending-list>
                     @foreach($group['items'] as $item)
                         <div class="item" data-item="{{ $item['id'] }}">
                             <input type="checkbox" data-toggle-done>
                             <div>
                                 <p class="item-name">{{ $item['name'] }}</p>
-                                <p class="item-meta">Qtd: {{ $item['quantity'] }} | Últ. valor: {{ $item['unit_price'] }}</p>
+                                <p class="item-meta">
+                                    <span class="item-qty-badge">Qtd: {{ $item['quantity'] }}</span>
+                                    <span>Últ. valor: {{ $item['unit_price'] }}</span>
+                                </p>
                             </div>
                             <div class="item-actions">
                                 <form
@@ -81,7 +84,7 @@
                 </div>
 
                 <div class="done-wrap">
-                    <h3 class="section-title">Feitos</h3>
+                    <h3 class="section-title">✅ Feitos</h3>
                     <div class="items" data-done-list></div>
                     <div class="empty" data-done-empty>Nenhum item concluído.</div>
                 </div>
@@ -94,7 +97,7 @@
             <strong style="font-size:15px;">Leitor de código de barras</strong>
             <p style="margin:0;font-size:12px;color:var(--muted);">Aponte a câmera para o código. Se não funcionar, digite manualmente.</p>
             <div class="scan-video-wrap">
-                <video id="scan-video" autoplay playsinline muted></video>
+                <div id="scan-reader"></div>
                 <div class="scan-guide" aria-hidden="true"></div>
             </div>
             <p class="scan-status" id="scan-status" role="status" aria-live="polite">Iniciando câmera...</p>
@@ -217,6 +220,8 @@
         <input type="hidden" name="barcode" id="hidden_barcode">
         <input type="hidden" name="quantity" id="hidden_quantity">
     </form>
+
+    <div id="app-toast" class="app-toast" role="status" aria-live="polite"></div>
 
     <script>
         window.sharedShoppingListConfig = {

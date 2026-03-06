@@ -251,7 +251,7 @@ class SharedShoppingListController extends Controller
 
     public function searchProducts(string $token, Request $request): JsonResponse
     {
-        ShoppingList::query()
+        $shoppingList = ShoppingList::query()
             ->where('share_token', $token)
             ->firstOrFail();
 
@@ -271,6 +271,20 @@ class SharedShoppingListController extends Controller
                     ->orWhere('products.original_name', 'like', '%' . $q . '%')
                     ->orWhere('products.barcode', 'like', '%' . $q . '%');
             })
+            ->selectSub(function ($query) use ($shoppingList): void {
+                $query->from('shopping_list_items as sli')
+                    ->selectRaw('count(*)')
+                    ->whereColumn('sli.product_id', 'products.id')
+                    ->where('sli.shopping_list_id', (int) $shoppingList->id);
+            }, 'in_list_count')
+            ->selectSub(function ($query): void {
+                $query->from('invoice_items as ii')
+                    ->join('market_products as mp2', 'ii.market_product_id', '=', 'mp2.id')
+                    ->selectRaw('count(*)')
+                    ->whereColumn('mp2.product_id', 'products.id');
+            }, 'usage_count')
+            ->orderByDesc('in_list_count')
+            ->orderByDesc('usage_count')
             ->orderBy('products.name')
             ->limit(12)
             ->get(['products.id', 'products.name', 'products.barcode', 'products.image'])
@@ -290,6 +304,8 @@ class SharedShoppingListController extends Controller
                 'barcode' => $product->barcode ? (string) $product->barcode : null,
                 'image' => $product->image ? (string) $product->image : null,
                 'last_price' => $lastPricesByProduct[(int) $product->id] ?? null,
+                'in_list' => ((int) ($product->in_list_count ?? 0)) > 0,
+                'usage_count' => (int) ($product->usage_count ?? 0),
             ])->values()->all(),
         ]);
     }

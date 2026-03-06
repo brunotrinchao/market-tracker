@@ -183,7 +183,7 @@
             font-size: 12px;
             color: var(--muted);
         }
-        .section-title {
+.section-title {
             margin: 0;
             padding: 10px 14px;
             font-size: 12px;
@@ -191,8 +191,9 @@
             text-transform: uppercase;
             color: var(--muted);
             background: #fff;
-            border-bottom: 1px solid var(--line);
-        }
+    border-bottom: 1px solid var(--line);
+    font-weight: 700;
+}
         .items {
             display: grid;
             gap: 8px;
@@ -220,7 +221,18 @@
             accent-color: var(--primary);
         }
         .item-name { margin: 0; font-size: 14px; font-weight: 600; }
-        .item-meta { margin: 4px 0 0; font-size: 12px; color: var(--muted); }
+.item-meta { margin: 4px 0 0; font-size: 12px; color: var(--muted); }
+.item-qty-badge {
+    display: inline-flex;
+    align-items: center;
+    padding: 2px 8px;
+    margin-right: 6px;
+    border-radius: 999px;
+    border: 1px solid #bae6fd;
+    background: #eff6ff;
+    color: #1e40af;
+    font-weight: 700;
+}
         .item-actions {
             display: grid;
             gap: 6px;
@@ -237,10 +249,10 @@
             font-weight: 600;
             cursor: pointer;
         }
-        .done-wrap {
-            border-top: 1px dashed var(--line);
-            background: #fcfcfd;
-        }
+.done-wrap {
+    border-top: 1px dashed var(--line);
+    background: #f7fafc;
+}
         .empty {
             padding: 10px 14px;
             font-size: 13px;
@@ -266,7 +278,13 @@
             display: grid;
             gap: 10px;
         }
-.scan-card video {
+#scan-reader {
+            width: 100%;
+            min-height: 220px;
+            background: #000;
+            border-radius: 10px;
+}
+#scan-reader video {
             width: 100%;
             max-height: 58vh;
             background: #000;
@@ -352,7 +370,7 @@
             overflow: auto;
             max-height: 280px;
         }
-        .search-item {
+.search-item {
             width: 100%;
             border: 0;
             border-bottom: 1px solid var(--line);
@@ -362,13 +380,52 @@
             display: flex;
             align-items: center;
             justify-content: space-between;
-            gap: 10px;
-            cursor: pointer;
-        }
-        .search-item:last-child { border-bottom: 0; }
-        .search-item:hover { background: #f8fafc; }
-        .search-name { margin: 0; font-size: 13px; font-weight: 600; color: #111827; }
-        .search-meta { margin: 3px 0 0; font-size: 12px; color: var(--muted); }
+    gap: 10px;
+    cursor: pointer;
+}
+.search-item:last-child { border-bottom: 0; }
+.search-item:hover { background: #f8fafc; }
+.search-item-left {
+    display: grid;
+    grid-template-columns: 44px minmax(0, 1fr);
+    gap: 10px;
+    align-items: center;
+}
+.search-thumb {
+    width: 44px;
+    height: 44px;
+    border-radius: 8px;
+    border: 1px solid #e5e7eb;
+    object-fit: cover;
+    background: #f8fafc;
+}
+.search-name { margin: 0; font-size: 13px; font-weight: 600; color: #111827; }
+.search-meta { margin: 3px 0 0; font-size: 12px; color: var(--muted); }
+.search-badges {
+    margin-top: 4px;
+    display: flex;
+    gap: 4px;
+    flex-wrap: wrap;
+}
+.search-badge {
+    display: inline-flex;
+    font-size: 11px;
+    padding: 2px 6px;
+    border-radius: 999px;
+    border: 1px solid #e5e7eb;
+    background: #f8fafc;
+    color: #475569;
+}
+.search-badge.in-list {
+    border-color: #86efac;
+    background: #ecfdf5;
+    color: #047857;
+}
+.search-badge.price {
+    border-color: #93c5fd;
+    background: #eff6ff;
+    color: #1e3a8a;
+}
 .search-empty {
             padding: 12px;
             font-size: 13px;
@@ -383,6 +440,28 @@
     text-align: center;
     background: #fff;
 }
+.app-toast {
+    position: fixed;
+    left: 50%;
+    bottom: 18px;
+    transform: translateX(-50%) translateY(20px);
+    background: #111827;
+    color: #fff;
+    border-radius: 10px;
+    padding: 10px 12px;
+    font-size: 13px;
+    font-weight: 600;
+    opacity: 0;
+    pointer-events: none;
+    transition: opacity .18s ease, transform .18s ease;
+    z-index: 3000;
+}
+.app-toast.is-visible {
+    opacity: 1;
+    transform: translateX(-50%) translateY(0);
+}
+.app-toast.is-error { background: #b91c1c; }
+.app-toast.is-success { background: #047857; }
 .modal-actions {
     display: flex;
     justify-content: flex-end;

@@ -37,6 +37,9 @@
         .hc-arrow { color: #9ca3af; transition: transform .2s ease; }
         .hc-arrow.open { transform: rotate(180deg); }
         .hc-body { border-top: 1px solid #f3f4f6; padding: 12px 14px; }
+        .hc-body-actions { margin-top: 10px; display: flex; gap: 8px; flex-wrap: wrap; }
+        .hc-link-btn { display: inline-flex; align-items: center; justify-content: center; min-height: 34px; padding: 6px 10px; border-radius: 8px; border: 1px solid #d1d5db; background: #fff; font-size: 12px; font-weight: 700; color: #111827; cursor: pointer; }
+        .hc-next-step { margin-top: 8px; font-size: 12px; color: #475569; }
         .hc-steps { margin: 0; padding: 0; list-style: none; display: grid; gap: 8px; }
         .hc-step { border: 1px solid #f3f4f6; border-radius: 10px; padding: 10px; background: #f9fafb; }
         .hc-step-tag { font-size: 11px; text-transform: uppercase; color: #6b7280; font-weight: 700; letter-spacing: .04em; }
@@ -133,6 +136,10 @@
                                 </li>
                             </template>
                         </ol>
+                        <div class="hc-body-actions">
+                            <button class="hc-link-btn" type="button" @click="copySectionLink(section.id)">Copiar link desta sessão</button>
+                        </div>
+                        <p class="hc-next-step" x-text="'Próximo passo recomendado: ' + nextStepLabel(section.id)"></p>
                     </div>
                 </article>
             </template>
@@ -296,6 +303,19 @@
                     this.checklist = this.checklist.map((item) => item.id !== checklistId ? item : { ...item, done: !item.done });
                     const doneIds = this.checklist.filter((item) => item.done).map((item) => item.id);
                     localStorage.setItem(STORAGE_KEY, JSON.stringify(doneIds));
+                },
+
+                nextStepLabel(sectionId) {
+                    const idx = this.sections.findIndex((section) => section.id === sectionId);
+                    if (idx < 0) return 'Revisar os itens principais.';
+                    if (idx >= this.sections.length - 1) return 'Revisar dados e voltar ao painel.';
+                    return this.sections[idx + 1].title;
+                },
+
+                copySectionLink(sectionId) {
+                    const url = new URL(window.location.href);
+                    url.hash = 'help-section-' + sectionId;
+                    navigator.clipboard.writeText(url.toString()).catch(() => {});
                 },
             };
         }
