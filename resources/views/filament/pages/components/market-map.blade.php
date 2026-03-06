@@ -6,6 +6,8 @@
     <style>
         .market-map-modal-layout {
             position: relative;
+            height: calc(100dvh - 14rem);
+            min-height: 420px;
         }
 
         .market-map-overlay-list {
@@ -47,6 +49,41 @@
             cursor: pointer;
         }
 
+        .market-map-location-target {
+            position: absolute;
+            left: 12px;
+            bottom: 12px;
+            z-index: 510;
+            width: 44px;
+            height: 44px;
+            border-radius: 999px;
+            border: 1px solid #d1d5db;
+            background: #fff;
+            color: #1f2937;
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            box-shadow: 0 8px 18px rgba(15, 23, 42, 0.15);
+            cursor: pointer;
+            transition: transform .12s ease, box-shadow .12s ease, background-color .12s ease;
+        }
+
+        .market-map-location-target:hover {
+            transform: translateY(-1px);
+            box-shadow: 0 10px 20px rgba(15, 23, 42, 0.18);
+            background: #f9fafb;
+        }
+
+        .market-map-location-target:disabled {
+            opacity: 0.7;
+            cursor: not-allowed;
+        }
+
+        @keyframes market-map-spin {
+            from { transform: rotate(0deg); }
+            to { transform: rotate(360deg); }
+        }
+
         @media (max-width: 1023px) {
             .market-map-overlay-list {
                 display: none;
@@ -73,6 +110,7 @@
             requestingUserLocation: false,
             userLocationMarker: null,
             isMarketsListCollapsed: false,
+            baseLayerControl: null,
             isSecureOrigin() {
                 const host = window.location.hostname;
                 return window.isSecureContext || host === 'localhost' || host === '127.0.0.1';
@@ -311,13 +349,32 @@
 
                     if (this.map) {
                         this.map.remove();
+                        this.baseLayerControl = null;
                     }
 
                     this.map = window.L.map(this.mapId).setView(this.defaultCenter, this.defaultZoom);
 
-                    window.L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+                    const defaultLayer = window.L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
                         attribution: '&copy; OpenStreetMap contributors'
-                    }).addTo(this.map);
+                    });
+
+                    const satelliteLayer = window.L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}', {
+                        attribution: 'Tiles &copy; Esri'
+                    });
+
+                    defaultLayer.addTo(this.map);
+
+                    this.baseLayerControl = window.L.control.layers(
+                        {
+                            '🗺️ Padrão': defaultLayer,
+                            '🛰️ Satélite': satelliteLayer,
+                        },
+                        {},
+                        {
+                            position: 'topleft',
+                            collapsed: true,
+                        }
+                    ).addTo(this.map);
 
                     await this.resolveMarketCoordinates();
 
@@ -391,7 +448,7 @@
         <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
 
         <div class="market-map-modal-layout">
-            <div id="{{ $mapId }}" style="height: 500px; border-radius: 12px;"></div>
+            <div id="{{ $mapId }}" style="height: 100%; border-radius: 12px;"></div>
 
             <button
                 type="button"
@@ -403,12 +460,23 @@
             ></button>
 
             <div class="market-map-overlay-list" x-show="!isMarketsListCollapsed" x-transition.opacity.duration.150ms>
-                <p style="padding:0 8px 8px 8px;font-size:12px;font-weight:600;letter-spacing:.04em;text-transform:uppercase;color:#6b7280;">
+                <p style="padding:0 8px 8px 8px;font-size:12px;font-weight:600;letter-spacing:.04em;text-transform:uppercase;color:#6b7280;display:flex;align-items:center;gap:6px;">
+                    <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" aria-hidden="true">
+                        <path d="M12 22S5 16.5 5 10.5A7 7 0 1 1 19 10.5C19 16.5 12 22 12 22Z" stroke="currentColor" stroke-width="1.8"></path>
+                        <circle cx="12" cy="10.5" r="2.5" stroke="currentColor" stroke-width="1.8"></circle>
+                    </svg>
                     Mercados cadastrados
                 </p>
 
                 <template x-if="resolvedMarkets.length === 0">
-                    <p style="padding:0 8px;font-size:14px;color:#6b7280;">Nenhum mercado com coordenadas encontrado.</p>
+                    <p style="padding:0 8px;font-size:14px;color:#6b7280;display:flex;align-items:center;gap:6px;">
+                        <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" aria-hidden="true">
+                            <circle cx="12" cy="12" r="9" stroke="currentColor" stroke-width="1.8"></circle>
+                            <path d="M12 8V13" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"></path>
+                            <circle cx="12" cy="16.5" r="1" fill="currentColor"></circle>
+                        </svg>
+                        Nenhum mercado com coordenadas encontrado.
+                    </p>
                 </template>
 
                 <div style="display:grid;gap:8px;">
@@ -434,26 +502,43 @@
                                 <div style="min-width:0;">
                                     <div style="display:flex;align-items:center;justify-content:space-between;gap:8px;">
                                         <div style="font-size:14px;font-weight:600;color:#1f2937;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;" x-text="market.name"></div>
-                                        <div style="font-size:12px;font-weight:700;color:#2563eb;white-space:nowrap;" x-text="marketDistanceLabel(market) ?? '-'"></div>
+                                        <div style="font-size:12px;font-weight:700;color:#2563eb;white-space:nowrap;display:flex;align-items:center;gap:4px;">
+                                            <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" aria-hidden="true">
+                                                <path d="M12 22S5 16.5 5 10.5A7 7 0 1 1 19 10.5C19 16.5 12 22 12 22Z" stroke="currentColor" stroke-width="1.8"></path>
+                                                <circle cx="12" cy="10.5" r="2.5" fill="currentColor"></circle>
+                                            </svg>
+                                            <span x-text="marketDistanceLabel(market) ?? '-'"></span>
+                                        </div>
                                     </div>
-                                    <div style="font-size:12px;color:#6b7280;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;" x-text="market.address"></div>
+                                    <div style="font-size:12px;color:#6b7280;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;display:flex;align-items:center;gap:4px;">
+                                        <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" aria-hidden="true">
+                                            <path d="M12 22S5 16.5 5 10.5A7 7 0 1 1 19 10.5C19 16.5 12 22 12 22Z" stroke="currentColor" stroke-width="1.8"></path>
+                                            <circle cx="12" cy="10.5" r="2.5" stroke="currentColor" stroke-width="1.8"></circle>
+                                        </svg>
+                                        <span x-text="market.address"></span>
+                                    </div>
                                 </div>
                             </div>
                         </button>
                     </template>
                 </div>
             </div>
-        </div>
 
-        <div class="mt-3">
             <button
                 type="button"
+                class="market-map-location-target"
                 @click="requestUserLocation()"
                 :disabled="requestingUserLocation"
-                class="inline-flex items-center gap-2 rounded-lg bg-blue-600 px-3 py-2 text-sm font-semibold text-white transition hover:bg-blue-700 disabled:cursor-not-allowed disabled:opacity-60"
+                :aria-label="requestingUserLocation ? 'Obtendo localização...' : 'Usar minha localização'"
+                :title="requestingUserLocation ? 'Obtendo localização...' : 'Usar minha localização'"
             >
-                <span x-show="!requestingUserLocation">Usar minha localização</span>
-                <span x-show="requestingUserLocation">Obtendo localização...</span>
+                <svg x-show="!requestingUserLocation" xmlns="http://www.w3.org/2000/svg" width="22" height="22" viewBox="0 0 24 24" fill="none" aria-hidden="true">
+                    <circle cx="12" cy="12" r="4" stroke="currentColor" stroke-width="1.8"></circle>
+                    <path d="M12 3V6M12 18V21M3 12H6M18 12H21" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"></path>
+                </svg>
+                <svg x-show="requestingUserLocation" xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" aria-hidden="true" style="animation: market-map-spin 1s linear infinite;">
+                    <path d="M21 12a9 9 0 1 1-3.1-6.8" stroke="currentColor" stroke-width="2" stroke-linecap="round"></path>
+                </svg>
             </button>
         </div>
 

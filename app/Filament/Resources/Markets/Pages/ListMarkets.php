@@ -25,8 +25,12 @@ class ListMarkets extends ListRecords
                 ->icon('heroicon-o-map')
                 ->color('gray')
                 ->modalHeading('Supermercados no mapa')
-                ->modalWidth(Width::FiveExtraLarge)
+                ->modalWidth(Width::Full)
+                ->extraModalWindowAttributes([
+                    'style' => 'height: calc(100dvh - 2rem);',
+                ])
                 ->modalSubmitAction(false)
+                ->modalCancelAction(false)
                 ->modalContent(function (): View {
                     $markets = Market::query()
                         ->with('addresses')
