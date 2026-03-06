@@ -19,6 +19,7 @@ use Filament\Schemas\Schema;
 use Filament\Support\Enums\Width;
 use Filament\Tables\Columns\ImageColumn;
 use Filament\Tables\Columns\TextColumn;
+use Filament\Tables\Columns\ViewColumn;
 use Filament\Tables\Filters\SelectFilter;
 use Filament\Tables\Table;
 use Illuminate\Database\Eloquent\Builder;
@@ -112,11 +113,16 @@ class ShoppingListItemsRelationManager extends RelationManager
                 $query->addSelect($selects);
             })
             ->columns([
+                ViewColumn::make('mobile_card')
+                    ->label('')
+                    ->view('filament.tables.columns.shopping-list-item-mobile-card')
+                    ->hiddenFrom('md'),
                 ImageColumn::make('product.image')
                     ->label('Imagem')
                     ->defaultImageUrl('https://placehold.co/64x64/e5e7eb/6b7280?text=P')
                     ->imageSize(36)
-                    ->square(),
+                    ->square()
+                    ->visibleFrom('md'),
                 TextColumn::make('product.name')
                     ->label('Produto')
                     ->searchable()
@@ -198,14 +204,17 @@ class ShoppingListItemsRelationManager extends RelationManager
                                     ->success()
                                     ->send();
                             }),
-                    ),
+                    )
+                    ->visibleFrom('md'),
                 TextColumn::make('quantity')
                     ->label('Qtd')
-                    ->numeric(decimalPlaces: 3),
+                    ->numeric(decimalPlaces: 3)
+                    ->visibleFrom('md'),
                 TextColumn::make('best_price')
                     ->label('Menor preço')
                     ->money('BRL')
-                    ->placeholder('-'),
+                    ->placeholder('-')
+                    ->visibleFrom('md'),
                 TextColumn::make('best_market_name')
                     ->label('Onde comprar')
                     ->badge()
@@ -290,11 +299,13 @@ class ShoppingListItemsRelationManager extends RelationManager
                                     ->send();
                             }),
                     )
-                    ->placeholder('Sem histórico'),
+                    ->placeholder('Sem histórico')
+                    ->visibleFrom('md'),
                 TextColumn::make('best_market_neighborhood')
                     ->label('Bairro')
                     ->state(fn ($record): ?string => $record->selected_market_neighborhood ?? $record->best_market_neighborhood)
-                    ->placeholder('-'),
+                    ->placeholder('-')
+                    ->visibleFrom('md'),
                 TextColumn::make('estimated_subtotal')
                     ->label('Subtotal estimado')
                     ->state(function ($record): ?float {
@@ -307,7 +318,8 @@ class ShoppingListItemsRelationManager extends RelationManager
                         return ((float) $record->quantity) * ((float) $unitPrice);
                     })
                     ->money('BRL')
-                    ->placeholder('-'),
+                    ->placeholder('-')
+                    ->visibleFrom('md'),
             ])
             ->headerActions([
                 Action::make('addProducts')

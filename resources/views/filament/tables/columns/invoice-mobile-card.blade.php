@@ -34,7 +34,7 @@
             <span style="font-weight:500;color:#6b7280;">Valor:</span>
             <span style="font-weight:700;color:#047857;">{{ $total }}</span>
         </p>
-        <p style="margin:4px 0 0;font-size:12px;color:#6b7280;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">
+        <p style="margin:4px 0 0;font-size:12px;color:#6b7280;white-space:normal;overflow-wrap:anywhere;word-break:break-word;line-height:1.35;">
             <span style="font-weight:500;">Chave:</span> {{ $accessKey }}
         </p>
     </div>
